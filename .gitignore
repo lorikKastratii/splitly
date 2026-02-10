@@ -39,3 +39,43 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Environment variables (add specific .env files with sensitive data)
+.env
+.env.development
+.env.production
+.env.staging
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+coverage/
+.nyc_output/
+
+# Build
+build/
+.build/
+
+# EAS
+eas-build-local/
+
+# Supabase local development
+.supabase/
+
+# OS
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
