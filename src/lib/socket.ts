@@ -1,8 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Use your computer's local IP so your phone can reach the backend
-const SOCKET_URL = 'http://192.168.0.102:3000';
+const SOCKET_URL = 'https://splitly-production-72fd.up.railway.app';
 
 class SocketClient {
   private socket: Socket | null = null;

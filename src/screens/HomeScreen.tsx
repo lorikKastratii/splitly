@@ -87,7 +87,7 @@ export default function HomeScreen() {
 
         <View style={styles.cardFooter}>
           <View style={styles.memberAvatars}>
-            {item.members.slice(0, 4).map((member, idx) => (
+            {(item.members || []).slice(0, 4).map((member, idx) => (
               <View
                 key={member.id}
                 style={[styles.memberAvatarWrapper, { marginLeft: idx > 0 ? -10 : 0, borderColor: colors.card }]}
@@ -95,10 +95,10 @@ export default function HomeScreen() {
                 <Avatar name={member.username} index={idx} size={28} userId={member.id} imageUri={member.avatar} />
               </View>
             ))}
-            {item.members.length > 4 && (
+            {(item.members || []).length > 4 && (
               <View style={[styles.memberAvatarWrapper, { marginLeft: -10, borderColor: colors.card }]}>
                 <View style={[styles.moreMembers, { backgroundColor: colors.backgroundSecondary }]}>
-                  <Text style={[styles.moreMembersText, { color: colors.textSecondary }]}>+{item.members.length - 4}</Text>
+                  <Text style={[styles.moreMembersText, { color: colors.textSecondary }]}>+{(item.members || []).length - 4}</Text>
                 </View>
               </View>
             )}

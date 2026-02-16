@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Use your computer's local IP so your phone can reach the backend
-const API_URL = 'http://192.168.0.102:3000/api';
+const API_URL = 'https://splitly-production-72fd.up.railway.app/api';
 
 interface ApiRequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
