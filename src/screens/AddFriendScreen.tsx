@@ -17,7 +17,7 @@ import { useSupabaseStore as useStore } from '../store/supabaseStore';
 import { useAuth } from '../store/authContext';
 import { useTheme } from '../theme/ThemeContext';
 import { shadows } from '../theme/colors';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import Avatar from '../components/Avatar';
 
 type AddFriendScreenNavigationProp = StackNavigationProp<RootStackParamList, 'AddFriend'>;
@@ -28,7 +28,7 @@ interface Props {
 
 interface SearchResult {
   id: string;
-  username: string;
+  name: string;
   email: string;
   avatar_url?: string;
 }
@@ -60,23 +60,20 @@ export default function AddFriendScreen({ navigation }: Props) {
     setNotFound(false);
 
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, username, email, avatar_url')
-        .ilike('username', searchQuery.trim())
-        .single();
+      const response = await api.searchUsers(searchQuery.trim());
 
-      if (error || !data) {
+      if (!response.user) {
         setNotFound(true);
       } else {
+        const data = response.user;
         // Check if already a friend
         const alreadyFriend = friends.some(f => f.friendId === data.id);
         if (alreadyFriend) {
-          Alert.alert('Already Friends', `@${data.username} is already in your friends list`);
+          Alert.alert('Already Friends', `@${data.name} is already in your friends list`);
           setSearchQuery('');
           return;
         }
-        
+
         // Check if request already exists
         const existingRequest = friendRequests.find(
           r => (r.fromUser === profile?.id && r.toUser === data.id) ||
@@ -84,14 +81,14 @@ export default function AddFriendScreen({ navigation }: Props) {
         );
         if (existingRequest) {
           if (existingRequest.fromUser === data.id) {
-            Alert.alert('Pending Request', `@${data.username} has already sent you a friend request! Check your friend requests.`);
+            Alert.alert('Pending Request', `@${data.name} has already sent you a friend request! Check your friend requests.`);
           } else {
-            Alert.alert('Request Pending', `You already sent a friend request to @${data.username}`);
+            Alert.alert('Request Pending', `You already sent a friend request to @${data.name}`);
           }
           setSearchQuery('');
           return;
         }
-        
+
         setSearchResult(data);
       }
     } catch (error) {
@@ -109,8 +106,8 @@ export default function AddFriendScreen({ navigation }: Props) {
     try {
       await sendFriendRequest(searchResult.id);
       Alert.alert(
-        'Request Sent! 📤', 
-        `A friend request has been sent to @${searchResult.username}. They need to accept it to become friends.`, 
+        'Request Sent!',
+        `A friend request has been sent to @${searchResult.name}. They need to accept it to become friends.`,
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     } catch (error: any) {
@@ -173,14 +170,14 @@ export default function AddFriendScreen({ navigation }: Props) {
           <View style={[styles.resultCard, { backgroundColor: colors.card }]}>
             <View style={styles.resultHeader}>
               <Avatar
-                name={searchResult.username}
+                name={searchResult.name}
                 index={0}
                 size={60}
                 userId={searchResult.id}
                 imageUri={searchResult.avatar_url}
               />
               <View style={styles.resultInfo}>
-                <Text style={[styles.resultUsername, { color: colors.text }]}>@{searchResult.username}</Text>
+                <Text style={[styles.resultUsername, { color: colors.text }]}>@{searchResult.name}</Text>
                 <Text style={[styles.resultEmail, { color: colors.textSecondary }]}>{searchResult.email}</Text>
               </View>
             </View>

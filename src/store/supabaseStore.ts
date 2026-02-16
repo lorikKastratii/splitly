@@ -4,6 +4,27 @@ import { Group, Expense, Settlement, User, Friend, Split, FriendRequest } from '
 import { api } from '../lib/api';
 import { socketClient } from '../lib/socket';
 
+const mapFriendRequests = (response: any): FriendRequest[] => [
+  ...(response.received || []).map((r: any) => ({
+    id: r.id,
+    fromUser: r.from_user_id,
+    toUser: r.to_user_id,
+    fromUsername: r.from_username,
+    fromAvatar: r.from_avatar,
+    status: r.status,
+    createdAt: r.created_at,
+  })),
+  ...(response.sent || []).map((r: any) => ({
+    id: r.id,
+    fromUser: r.from_user_id,
+    toUser: r.to_user_id,
+    toUsername: r.to_username,
+    toAvatar: r.to_avatar,
+    status: r.status,
+    createdAt: r.created_at,
+  })),
+];
+
 interface SupabaseStore {
   groups: Group[];
   expenses: Expense[];
@@ -73,6 +94,15 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
       // Load friends
       const friendsResponse = await api.getFriends();
       set({ friends: friendsResponse.friends || [] });
+
+      // Load friend requests
+      try {
+        const requestsResponse = await api.getFriendRequests();
+        set({ friendRequests: mapFriendRequests(requestsResponse) });
+      } catch (e) {
+        // Friend requests table might not exist yet
+        console.warn('Failed to load friend requests:', e);
+      }
 
       set({ lastUpdated: Date.now() });
     } catch (error) {
@@ -212,15 +242,42 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
   },
 
   sendFriendRequest: async (toUserId) => {
-    console.warn('sendFriendRequest: Not yet implemented');
+    try {
+      await api.sendFriendRequest(toUserId);
+      const requestsResponse = await api.getFriendRequests();
+      set({ friendRequests: mapFriendRequests(requestsResponse) });
+    } catch (error) {
+      console.error('Send friend request error:', error);
+      throw error;
+    }
   },
 
   acceptFriendRequest: async (requestId, fromUserId) => {
-    console.warn('acceptFriendRequest: Not yet implemented');
+    try {
+      await api.acceptFriendRequest(requestId);
+      const [friendsResponse, requestsResponse] = await Promise.all([
+        api.getFriends(),
+        api.getFriendRequests(),
+      ]);
+      set({
+        friends: friendsResponse.friends || [],
+        friendRequests: mapFriendRequests(requestsResponse),
+      });
+    } catch (error) {
+      console.error('Accept friend request error:', error);
+      throw error;
+    }
   },
 
   rejectFriendRequest: async (requestId) => {
-    console.warn('rejectFriendRequest: Not yet implemented');
+    try {
+      await api.rejectFriendRequest(requestId);
+      const requestsResponse = await api.getFriendRequests();
+      set({ friendRequests: mapFriendRequests(requestsResponse) });
+    } catch (error) {
+      console.error('Reject friend request error:', error);
+      throw error;
+    }
   },
 
   deleteFriend: async (id) => {

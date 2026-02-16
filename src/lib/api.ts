@@ -244,6 +244,34 @@ class ApiClient {
     });
   }
 
+  // Friend Requests
+  async searchUsers(query: string) {
+    return await this.request(`/friend-requests/search?query=${encodeURIComponent(query)}`);
+  }
+
+  async sendFriendRequest(toUserId: string) {
+    return await this.request('/friend-requests', {
+      method: 'POST',
+      body: { to_user_id: toUserId },
+    });
+  }
+
+  async getFriendRequests() {
+    return await this.request('/friend-requests');
+  }
+
+  async acceptFriendRequest(requestId: string) {
+    return await this.request(`/friend-requests/${requestId}/accept`, {
+      method: 'PUT',
+    });
+  }
+
+  async rejectFriendRequest(requestId: string) {
+    return await this.request(`/friend-requests/${requestId}/reject`, {
+      method: 'PUT',
+    });
+  }
+
   async uploadImage(imageUri: string) {
     const token = await this.getAuthToken();
 

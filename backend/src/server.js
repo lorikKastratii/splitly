@@ -15,6 +15,7 @@ const groupRoutes = require('./routes/groupRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const settlementRoutes = require('./routes/settlementRoutes');
 const friendRoutes = require('./routes/friendRoutes');
+const friendRequestRoutes = require('./routes/friendRequestRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 
 const app = express();
@@ -45,6 +46,7 @@ app.use('/api/groups', groupRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/settlements', settlementRoutes);
 app.use('/api/friends', friendRoutes);
+app.use('/api/friend-requests', friendRequestRoutes);
 app.use('/api/upload', uploadRoutes);
 
 app.get('/api/health', (req, res) => {
