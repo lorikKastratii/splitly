@@ -39,7 +39,7 @@ interface SupabaseStore {
   loadData: () => Promise<void>;
   refreshGroups: () => Promise<void>;
 
-  addGroup: (group: Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>) => Promise<string>;
+  addGroup: (group: Omit<Group, 'id' | 'createdAt' | 'updatedAt' | 'inviteCode'>) => Promise<{ id: string; inviteCode: string }>;
   updateGroup: (id: string, group: Partial<Group>) => Promise<void>;
   deleteGroup: (id: string) => Promise<void>;
   addMemberToGroup: (groupId: string, member: User) => Promise<void>;
@@ -125,7 +125,7 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
     try {
       const response = await api.createGroup(group);
       await get().refreshGroups();
-      return response.group.id;
+      return { id: response.group.id, inviteCode: response.group.invite_code };
     } catch (error) {
       console.error('Add group error:', error);
       throw error;

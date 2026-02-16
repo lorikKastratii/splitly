@@ -11,20 +11,15 @@ import {
   Modal,
   Image,
   Switch,
-  ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
-import { decode } from 'base64-arraybuffer';
 import { useSupabaseStore as useStore } from '../store/supabaseStore';
 import { useAuth } from '../store/authContext';
 import { useTheme } from '../theme/ThemeContext';
 import { shadows } from '../theme/colors';
 import { formatCurrency } from '../lib/utils';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 export default function AccountScreen() {
   const { groups, expenses, friends, loadData } = useStore();
@@ -72,46 +67,16 @@ export default function AccountScreen() {
       const localUri = result.assets[0].uri;
       setAvatarUri(localUri); // Show immediately while uploading
       setUploadingAvatar(true);
-      
+
       try {
-        // Read the file as base64
-        const base64 = await FileSystem.readAsStringAsync(localUri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        
-        // Generate a unique filename
-        const fileExt = localUri.split('.').pop()?.toLowerCase() || 'jpg';
-        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-        const filePath = `avatars/${fileName}`;
-        
-        // Upload to Supabase Storage
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(filePath, decode(base64), {
-            contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
-            upsert: true,
-          });
-        
-        if (uploadError) {
-          console.error('Upload error:', uploadError);
-          Alert.alert('Error', 'Failed to upload image: ' + uploadError.message);
-          setAvatarUri(authProfile?.avatar_url);
-          setUploadingAvatar(false);
-          return;
-        }
-        
-        // Get the public URL
-        const { data: urlData } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(filePath);
-        
-        const publicUrl = urlData.publicUrl;
-        console.log('📸 Avatar uploaded:', publicUrl);
-        
-        // Update profile with the public URL
+        // Upload via backend API
+        const uploadResponse = await api.uploadImage(localUri);
+        const publicUrl = uploadResponse.url;
+
+        // Update profile with the uploaded URL
         await updateAuthProfile({ avatar_url: publicUrl });
         setAvatarUri(publicUrl);
-        
+
       } catch (error) {
         console.error('Error uploading avatar:', error);
         Alert.alert('Error', 'Failed to upload profile picture');
@@ -124,18 +89,14 @@ export default function AccountScreen() {
 
   const handleSaveProfile = async () => {
     if (!user) return;
-    
-    try {
-      // Only allow updating email
-      if (editEmail !== authProfile?.email) {
-        const { error: emailError } = await updateAuthProfile({
-          email: editEmail.trim(),
-        });
-        if (emailError) throw emailError;
-      }
 
+    try {
       // Update password if provided
       if (newPassword) {
+        if (!currentPassword) {
+          Alert.alert('Error', 'Please enter your current password');
+          return;
+        }
         if (newPassword !== confirmPassword) {
           Alert.alert('Error', 'New passwords do not match');
           return;
@@ -145,11 +106,7 @@ export default function AccountScreen() {
           return;
         }
 
-        const { error: passwordError } = await supabase.auth.updateUser({
-          password: newPassword,
-        });
-
-        if (passwordError) throw passwordError;
+        await api.changePassword(currentPassword, newPassword);
       }
 
       // Clear password fields and close modal

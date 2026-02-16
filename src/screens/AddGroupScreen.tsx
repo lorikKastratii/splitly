@@ -20,7 +20,6 @@ import { useTheme } from '../theme/ThemeContext';
 import { shadows } from '../theme/colors';
 import InviteCodeModal from '../components/InviteCodeModal';
 import * as ImagePicker from 'expo-image-picker';
-import { supabase } from '../lib/supabase';
 
 type AddGroupScreenNavigationProp = StackNavigationProp<RootStackParamList, 'AddGroup'>;
 
@@ -95,7 +94,7 @@ export default function AddGroupScreen({ navigation }: Props) {
       console.log('📝 Group data:', { name: name.trim(), description: description.trim(), currency, selectedFriends: selectedFriendIds.length });
       
       // Create group - you are automatically added as a member
-      const inviteCode = await addGroup({
+      const createdGroup = await addGroup({
         name: name.trim(),
         description: description.trim(),
         imageUri: groupImage,
@@ -103,35 +102,26 @@ export default function AddGroupScreen({ navigation }: Props) {
         currency,
       });
 
-      console.log('✅ Group created with invite code:', inviteCode);
-      
+      console.log('✅ Group created:', createdGroup);
+
       // Add selected friends as members
       if (selectedFriendIds.length > 0) {
         console.log('👥 Adding selected friends to group...');
-        
-        // Get the group ID from the invite code
-        const { data: createdGroup } = await supabase
-          .from('groups')
-          .select('id')
-          .eq('invite_code', inviteCode)
-          .single();
-        
-        if (createdGroup) {
-          for (const friendId of selectedFriendIds) {
-            const friend = friends.find(f => f.id === friendId);
-            if (friend) {
-              try {
-                await addMemberToGroup(createdGroup.id, { id: friend.friendId } as any);
-                console.log(`✅ Added friend ${friend.username} to group`);
-              } catch (err) {
-                console.error(`Failed to add friend ${friend.username}:`, err);
-              }
+
+        for (const friendId of selectedFriendIds) {
+          const friend = friends.find(f => f.id === friendId);
+          if (friend) {
+            try {
+              await addMemberToGroup(createdGroup.id, { id: friend.friendId } as any);
+              console.log(`✅ Added friend ${friend.username} to group`);
+            } catch (err) {
+              console.error(`Failed to add friend ${friend.username}:`, err);
             }
           }
         }
       }
-      
-      setCreatedInviteCode(inviteCode);
+
+      setCreatedInviteCode(createdGroup.inviteCode);
       setShowInviteModal(true);
     } catch (error: any) {
       console.error('❌ Error creating group:', error);

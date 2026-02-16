@@ -98,6 +98,13 @@ class ApiClient {
     });
   }
 
+  async changePassword(currentPassword: string, newPassword: string) {
+    return await this.request('/auth/change-password', {
+      method: 'PUT',
+      body: { current_password: currentPassword, new_password: newPassword },
+    });
+  }
+
   async getGroups() {
     return await this.request('/groups');
   }
