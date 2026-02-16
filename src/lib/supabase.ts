@@ -1,26 +1,25 @@
-import { createClient } from '@supabase/supabase-js';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// Stub file for Supabase compatibility - screens will use new API
+// This prevents import errors while we migrate
 
-// Supabase configuration
-// Get these from: Supabase Dashboard → Settings → API
-const SUPABASE_URL = 'https://wuliefazkpwtclpndiic.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1bGllZmF6a3B3dGNscG5kaWljIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMDY1MDcsImV4cCI6MjA4NDY4MjUwN30.CM72SMN0Wn1hj-RaL2OQ88XMPry1h98wp5Y5PKpXTEg';
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+export const supabase = {
   auth: {
-    storage: AsyncStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
+    updateUser: async (updates: any) => {
+      console.warn('supabase.auth.updateUser is deprecated - use api.updateProfile instead');
+      return { error: new Error('Use new API client') };
     },
   },
-});
+  storage: {
+    from: (bucket: string) => ({
+      upload: async () => {
+        console.warn('supabase.storage is deprecated - use api.uploadImage instead');
+        return { error: new Error('Use new API client') };
+      },
+      getPublicUrl: () => ({ data: { publicUrl: '' } }),
+    }),
+  },
+};
 
-// Database types for TypeScript
+// Type definitions for compatibility
 export interface DbUser {
   id: string;
   email: string;

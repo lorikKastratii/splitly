@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(node scripts/initDatabase.js:*)",
+      "Bash(pushd:*)"
+    ]
+  }
+}
