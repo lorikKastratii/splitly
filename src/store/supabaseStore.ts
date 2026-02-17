@@ -4,6 +4,16 @@ import { Group, Expense, Settlement, User, Friend, Split, FriendRequest } from '
 import { api } from '../lib/api';
 import { socketClient } from '../lib/socket';
 
+const mapFriends = (friends: any[]): Friend[] =>
+  friends.map((f: any) => ({
+    id: f.id,
+    friendId: f.friend_user_id || f.id,
+    username: f.name,
+    email: f.email,
+    avatar: f.linked_user_avatar || f.avatar_url,
+    addedAt: f.added_at,
+  }));
+
 const mapFriendRequests = (response: any): FriendRequest[] => [
   ...(response.received || []).map((r: any) => ({
     id: r.id,
@@ -93,7 +103,7 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
 
       // Load friends
       const friendsResponse = await api.getFriends();
-      set({ friends: friendsResponse.friends || [] });
+      set({ friends: mapFriends(friendsResponse.friends || []) });
 
       // Load friend requests
       try {
@@ -260,7 +270,7 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
         api.getFriendRequests(),
       ]);
       set({
-        friends: friendsResponse.friends || [],
+        friends: mapFriends(friendsResponse.friends || []),
         friendRequests: mapFriendRequests(requestsResponse),
       });
     } catch (error) {

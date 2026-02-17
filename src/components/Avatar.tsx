@@ -20,7 +20,7 @@ export default function Avatar({ name, index, size = 36, userId, imageUri }: Ava
     return colors.avatarColors[idx % colors.avatarColors.length];
   };
 
-  const initials = name
+  const initials = (name || '?')
     .split(' ')
     .map((n) => n[0])
     .join('')
