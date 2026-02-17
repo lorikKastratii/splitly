@@ -7,7 +7,7 @@ const compression = require('compression');
 const morgan = require('morgan');
 require('dotenv').config();
 
-const { pool } = require('./config/database');
+const { pool, initDatabase } = require('./config/database');
 const { verifyToken } = require('./utils/jwt');
 
 const authRoutes = require('./routes/authRoutes');
@@ -118,6 +118,8 @@ const startServer = async () => {
   try {
     await pool.query('SELECT NOW()');
     console.log('✓ Database connection verified');
+
+    await initDatabase();
 
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`✓ Server running on port ${PORT}`);

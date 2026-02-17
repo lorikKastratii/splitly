@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm install:*)",
       "Bash(node scripts/initDatabase.js:*)",
-      "Bash(pushd:*)"
+      "Bash(pushd:*)",
+      "Bash(curl:*)"
     ]
   }
 }

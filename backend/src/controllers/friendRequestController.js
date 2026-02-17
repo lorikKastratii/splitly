@@ -76,7 +76,7 @@ const sendFriendRequest = async (req, res) => {
 
     res.status(201).json({ request: result.rows[0] });
   } catch (error) {
-    console.error('Send friend request error:', error);
+    console.error('Send friend request error:', error.message, error.stack);
     if (error.code === '23505') {
       return res.status(400).json({ error: 'Friend request already exists' });
     }
@@ -112,7 +112,7 @@ const getFriendRequests = async (req, res) => {
       sent: sentResult.rows,
     });
   } catch (error) {
-    console.error('Get friend requests error:', error);
+    console.error('Get friend requests error:', error.message, error.stack);
     res.status(500).json({ error: 'Failed to fetch friend requests' });
   }
 };
