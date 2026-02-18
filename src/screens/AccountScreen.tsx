@@ -317,7 +317,7 @@ export default function AccountScreen() {
         </ScrollView>
       </SafeAreaView>
 
-      <Modal visible={showEditModal} transparent animationType="fade" onRequestClose={() => setShowEditModal(false)}>
+      <Modal visible={showEditModal} transparent animationType="fade" onRequestClose={() => { setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); setShowEditModal(false); }}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Edit Profile</Text>
@@ -328,6 +328,10 @@ export default function AccountScreen() {
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Change Password</Text>
             <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Current Password</Text>
+              <TextInput style={styles.input} value={currentPassword} onChangeText={setCurrentPassword} placeholder="Enter current password" placeholderTextColor={colors.textMuted} secureTextEntry autoCapitalize="none" />
+            </View>
+            <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>New Password</Text>
               <TextInput style={styles.input} value={newPassword} onChangeText={setNewPassword} placeholder="At least 6 characters" placeholderTextColor={colors.textMuted} secureTextEntry autoCapitalize="none" />
             </View>
@@ -336,7 +340,7 @@ export default function AccountScreen() {
               <TextInput style={styles.input} value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Re-enter new password" placeholderTextColor={colors.textMuted} secureTextEntry autoCapitalize="none" />
             </View>
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={[styles.modalButton, styles.modalButtonCancel]} onPress={() => setShowEditModal(false)}><Text style={[styles.modalButtonText, { color: colors.text }]}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.modalButton, styles.modalButtonCancel]} onPress={() => { setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); setShowEditModal(false); }}><Text style={[styles.modalButtonText, { color: colors.text }]}>Cancel</Text></TouchableOpacity>
               <TouchableOpacity style={[styles.modalButton, styles.modalButtonSave]} onPress={handleSaveProfile}><Text style={[styles.modalButtonText, { color: colors.textInverse }]}>Save</Text></TouchableOpacity>
             </View>
           </View>
