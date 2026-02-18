@@ -206,7 +206,13 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
   },
 
   addMemberToGroup: async (groupId, member) => {
-    console.warn('addMemberToGroup: Implement when needed');
+    try {
+      await api.addMemberToGroup(groupId, member.id);
+      await get().refreshGroups();
+    } catch (error) {
+      console.error('Add member to group error:', error);
+      throw error;
+    }
   },
 
   removeMemberFromGroup: async (groupId, memberId) => {

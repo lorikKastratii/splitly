@@ -277,6 +277,57 @@ const leaveGroup = async (req, res) => {
   }
 };
 
+const addMemberToGroup = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user_id } = req.body;
+
+    if (!user_id) {
+      return res.status(400).json({ error: 'user_id is required' });
+    }
+
+    // Only allow group members to add other members
+    const isMember = await pool.query(
+      'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [id, req.userId]
+    );
+
+    if (isMember.rows.length === 0) {
+      return res.status(403).json({ error: 'Not a member of this group' });
+    }
+
+    // Check if user to add exists
+    const userExists = await pool.query(
+      'SELECT 1 FROM users WHERE id = $1',
+      [user_id]
+    );
+
+    if (userExists.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if already a member
+    const alreadyMember = await pool.query(
+      'SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2',
+      [id, user_id]
+    );
+
+    if (alreadyMember.rows.length > 0) {
+      return res.json({ message: 'User is already a member' });
+    }
+
+    await pool.query(
+      'INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)',
+      [id, user_id]
+    );
+
+    res.status(201).json({ message: 'Member added successfully' });
+  } catch (error) {
+    console.error('Add member error:', error);
+    res.status(500).json({ error: 'Failed to add member' });
+  }
+};
+
 module.exports = {
   createGroup,
   getGroups,
@@ -285,4 +336,5 @@ module.exports = {
   deleteGroup,
   joinGroupByCode,
   leaveGroup,
+  addMemberToGroup,
 };

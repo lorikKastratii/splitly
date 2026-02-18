@@ -153,6 +153,13 @@ class ApiClient {
     });
   }
 
+  async addMemberToGroup(groupId: string, userId: string) {
+    return await this.request(`/groups/${groupId}/members`, {
+      method: 'POST',
+      body: { user_id: userId },
+    });
+  }
+
   async leaveGroup(groupId: string) {
     return await this.request(`/groups/${groupId}/leave`, {
       method: 'DELETE',

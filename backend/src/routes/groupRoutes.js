@@ -7,6 +7,7 @@ const {
   deleteGroup,
   joinGroupByCode,
   leaveGroup,
+  addMemberToGroup,
 } = require('../controllers/groupController');
 const { authMiddleware } = require('../middleware/auth');
 
@@ -21,5 +22,6 @@ router.get('/:id', getGroupById);
 router.put('/:id', updateGroup);
 router.delete('/:id', deleteGroup);
 router.delete('/:id/leave', leaveGroup);
+router.post('/:id/members', addMemberToGroup);
 
 module.exports = router;
