@@ -16,7 +16,8 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useSupabaseStore as useStore } from '../store/supabaseStore';
 import { useAuth } from '../store/authContext';
-import { Expense, Group } from '../types';
+import { Expense, Group, User, Settlement } from '../types';
+import { api } from '../lib/api';
 import { format } from 'date-fns';
 import { calculateBalances, simplifyDebts } from '../lib/calculations';
 import { useTheme } from '../theme/ThemeContext';
@@ -39,19 +40,82 @@ type TabType = 'expenses' | 'balances' | 'myExpenses';
 
 export default function GroupDetailScreen({ navigation, route }: Props) {
   const { group } = route.params;
-  const { expenses, groups, settlements: allSettlements, addSettlement, loadData, lastUpdated } = useStore();
+  const { groups, addSettlement, loadData, lastUpdated } = useStore();
   const { profile } = useAuth();
   const currentUserId = profile?.id || '';
   const [activeTab, setActiveTab] = useState<TabType>('expenses');
   const [refreshing, setRefreshing] = useState(false);
+  const [localMembers, setLocalMembers] = useState<User[]>([]);
+  const [localExpenses, setLocalExpenses] = useState<Expense[]>([]);
+  const [localSettlements, setLocalSettlements] = useState<Settlement[]>([]);
   const { colors, isDark } = useTheme();
+
+  const fetchGroupData = useCallback(async () => {
+    try {
+      const [groupRes, expensesRes, settlementsRes] = await Promise.all([
+        api.getGroup(group.id),
+        api.getGroupExpenses(group.id),
+        api.getGroupSettlements(group.id),
+      ]);
+
+      if (groupRes.group?.members) {
+        setLocalMembers(groupRes.group.members.map((m: any) => ({
+          id: m.id,
+          username: m.name,
+          email: m.email,
+          avatar: m.avatar_url,
+        })));
+      }
+
+      if (expensesRes.expenses) {
+        setLocalExpenses(expensesRes.expenses.map((e: any) => ({
+          id: e.id,
+          groupId: e.group_id,
+          description: e.description,
+          amount: parseFloat(e.amount),
+          currency: e.currency,
+          paidBy: e.paid_by,
+          splitType: e.split_type,
+          category: e.category,
+          date: e.date,
+          createdAt: e.created_at,
+          notes: e.notes,
+          splits: (e.splits || []).map((s: any) => ({
+            userId: s.user_id,
+            amount: parseFloat(s.amount),
+            percentage: s.percentage,
+          })),
+        })));
+      }
+
+      if (settlementsRes.settlements) {
+        setLocalSettlements(settlementsRes.settlements.map((s: any) => ({
+          id: s.id,
+          groupId: s.group_id,
+          from: s.from_user,
+          to: s.to_user,
+          amount: parseFloat(s.amount),
+          currency: s.currency,
+          date: s.date,
+          createdAt: s.created_at,
+          notes: s.notes,
+        })));
+      }
+    } catch (error) {
+      console.error('Failed to fetch group data:', error);
+    }
+  }, [group.id]);
 
   // Pull to refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadData();
+    await Promise.all([loadData(), fetchGroupData()]);
     setRefreshing(false);
-  }, [loadData]);
+  }, [loadData, fetchGroupData]);
+
+  useEffect(() => {
+    fetchGroupData();
+  }, [fetchGroupData]);
 
   // Get updated group from store
   const currentGroup = groups.find((g) => g.id === group.id) || group;
@@ -108,20 +172,15 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
   };
 
   const groupExpenses = useMemo(
-    () => expenses.filter((e) => e.groupId === currentGroup.id).sort((a, b) => 
+    () => [...localExpenses].sort((a, b) =>
       new Date(b.date).getTime() - new Date(a.date).getTime()
     ),
-    [expenses, currentGroup.id]
-  );
-
-  const groupSettlements = useMemo(
-    () => allSettlements.filter((s) => s.groupId === currentGroup.id),
-    [allSettlements, currentGroup.id]
+    [localExpenses]
   );
 
   const balances = useMemo(
-    () => calculateBalances(groupExpenses, currentGroup.members, groupSettlements),
-    [groupExpenses, currentGroup.members, groupSettlements]
+    () => calculateBalances(groupExpenses, localMembers, localSettlements),
+    [groupExpenses, localMembers, localSettlements]
   );
 
   const suggestedSettlements = useMemo(
@@ -213,15 +272,15 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
   );
 
   const getMemberName = (userId: string) => {
-    return currentGroup.members.find((m) => m.id === userId)?.username || 'Unknown';
+    return localMembers.find((m) => m.id === userId)?.username || 'Unknown';
   };
 
   const getMemberIndex = (userId: string) => {
-    return currentGroup.members.findIndex((m) => m.id === userId);
+    return localMembers.findIndex((m) => m.id === userId);
   };
 
   const getMemberAvatar = (userId: string) => {
-    return currentGroup.members.find((m) => m.id === userId)?.avatar;
+    return localMembers.find((m) => m.id === userId)?.avatar;
   };
 
   const renderExpense = ({ item }: { item: Expense }) => {
@@ -268,7 +327,7 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
           </Text>
           <Text style={[styles.summarySubtext, { color: 'rgba(255,255,255,0.6)' }]}>
             {groupExpenses.length} expense{groupExpenses.length !== 1 ? 's' : ''} •{' '}
-            {currentGroup.members.length} members
+            {localMembers.length} members
           </Text>
         </View>
       </View>
@@ -508,8 +567,8 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
                         {
                           text: 'Settle All',
                           style: 'default',
-                          onPress: () => {
-                            mySettlements.forEach((settlement) => {
+                          onPress: async () => {
+                            await Promise.all(mySettlements.map((settlement) =>
                               addSettlement({
                                 groupId: currentGroup.id,
                                 from: settlement.from,
@@ -517,8 +576,9 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
                                 amount: settlement.amount,
                                 currency: currentGroup.currency,
                                 date: new Date().toISOString(),
-                              });
-                            });
+                              })
+                            ));
+                            await fetchGroupData();
                             Alert.alert('✓ All Settled!', 'Your debts have been settled.');
                           },
                         },
@@ -573,8 +633,8 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
                             { text: 'Cancel', style: 'cancel' },
                             {
                               text: 'Confirm',
-                              onPress: () => {
-                                addSettlement({
+                              onPress: async () => {
+                                await addSettlement({
                                   groupId: currentGroup.id,
                                   from: settlement.from,
                                   to: settlement.to,
@@ -582,6 +642,7 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
                                   currency: currentGroup.currency,
                                   date: new Date().toISOString(),
                                 });
+                                await fetchGroupData();
                               },
                             },
                           ]
