@@ -37,6 +37,8 @@ export interface Group {
   inviteCode: string;
   createdAt: string;
   updatedAt: string;
+  expenseCount?: number;
+  totalSpent?: number;
 }
 
 export interface Expense {

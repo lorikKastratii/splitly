@@ -4,6 +4,26 @@ import { Group, Expense, Settlement, User, Friend, Split, FriendRequest } from '
 import { api } from '../lib/api';
 import { socketClient } from '../lib/socket';
 
+const mapGroups = (groups: any[]): Group[] =>
+  groups.map((g: any) => ({
+    id: g.id,
+    name: g.name,
+    description: g.description,
+    imageUri: g.image_url,
+    members: (g.members || []).map((m: any) => ({
+      id: m.id,
+      username: m.name,
+      email: m.email,
+      avatar: m.avatar_url,
+    })),
+    currency: g.currency,
+    inviteCode: g.invite_code,
+    expenseCount: g.expense_count || 0,
+    totalSpent: g.total_spent || 0,
+    createdAt: g.created_at,
+    updatedAt: g.updated_at,
+  }));
+
 const mapFriends = (friends: any[]): Friend[] =>
   friends.map((f: any) => ({
     id: f.id,
@@ -99,7 +119,7 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
 
       // Load groups
       const groupsResponse = await api.getGroups();
-      set({ groups: groupsResponse.groups || [] });
+      set({ groups: mapGroups(groupsResponse.groups || []) });
 
       // Load friends
       const friendsResponse = await api.getFriends();
@@ -125,7 +145,7 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
   refreshGroups: async () => {
     try {
       const groupsResponse = await api.getGroups();
-      set({ groups: groupsResponse.groups || [], lastUpdated: Date.now() });
+      set({ groups: mapGroups(groupsResponse.groups || []), lastUpdated: Date.now() });
     } catch (error) {
       console.error('Refresh groups error:', error);
     }
@@ -133,7 +153,14 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
 
   addGroup: async (group) => {
     try {
-      const response = await api.createGroup(group);
+      // Map frontend field names to API field names
+      const apiData: any = {
+        name: group.name,
+        description: group.description,
+        currency: group.currency,
+      };
+      if (group.imageUri) apiData.image_url = group.imageUri;
+      const response = await api.createGroup(apiData);
       await get().refreshGroups();
       return { id: response.group.id, inviteCode: response.group.invite_code };
     } catch (error) {
@@ -144,7 +171,13 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
 
   updateGroup: async (id, group) => {
     try {
-      await api.updateGroup(id, group);
+      // Map frontend field names to API field names
+      const apiData: any = {};
+      if (group.name !== undefined) apiData.name = group.name;
+      if (group.description !== undefined) apiData.description = group.description;
+      if (group.currency !== undefined) apiData.currency = group.currency;
+      if (group.imageUri !== undefined) apiData.image_url = group.imageUri;
+      await api.updateGroup(id, apiData);
       await get().refreshGroups();
     } catch (error) {
       console.error('Update group error:', error);
@@ -193,6 +226,7 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
         description: expense.description,
         amount: expense.amount,
         currency: expense.currency,
+        paid_by: expense.paidBy,
         split_type: expense.splitType,
         category: expense.category,
         date: expense.date,
@@ -228,7 +262,8 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
     try {
       await api.createSettlement({
         group_id: settlement.groupId,
-        to_user: settlement.toUser,
+        from_user: settlement.from,
+        to_user: settlement.to,
         amount: settlement.amount,
         currency: settlement.currency,
         date: settlement.date,
@@ -294,7 +329,7 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
     try {
       await api.deleteFriend(id);
       const friendsResponse = await api.getFriends();
-      set({ friends: friendsResponse.friends || [] });
+      set({ friends: mapFriends(friendsResponse.friends || []) });
     } catch (error) {
       console.error('Delete friend error:', error);
       throw error;

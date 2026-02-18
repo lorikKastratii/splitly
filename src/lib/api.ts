@@ -168,6 +168,7 @@ class ApiClient {
     description: string;
     amount: number;
     currency: string;
+    paid_by?: string;
     split_type: string;
     category?: string;
     date?: string;
@@ -196,6 +197,7 @@ class ApiClient {
 
   async createSettlement(data: {
     group_id: string;
+    from_user?: string;
     to_user: string;
     amount: number;
     currency: string;

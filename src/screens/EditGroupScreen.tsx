@@ -18,6 +18,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useSupabaseStore as useStore } from '../store/supabaseStore';
+import { useAuth } from '../store/authContext';
 import { User, Currency } from '../types';
 import { useTheme } from '../theme/ThemeContext';
 import { shadows } from '../theme/colors';
@@ -44,6 +45,8 @@ const currencies: { value: Currency; label: string; symbol: string }[] = [
 export default function EditGroupScreen({ navigation, route }: Props) {
   const { groupId } = route.params;
   const { groups, updateGroup, addMemberToGroup, removeMemberFromGroup, deleteGroup } = useStore();
+  const { profile } = useAuth();
+  const currentUserId = profile?.id || '';
   const { colors, isDark } = useTheme();
   const group = groups.find((g) => g.id === groupId);
 
@@ -359,7 +362,7 @@ export default function EditGroupScreen({ navigation, route }: Props) {
                     <Text style={[styles.memberEmail, { color: colors.textSecondary }]}>{member.email}</Text>
                   )}
                 </View>
-                {member.id !== 'me' && (
+                {member.id !== currentUserId && (
                   <TouchableOpacity
                     style={[styles.removeMemberButton, { backgroundColor: colors.dangerLight }]}
                     onPress={() => handleRemoveMember(member.id)}

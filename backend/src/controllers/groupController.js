@@ -44,17 +44,41 @@ const createGroup = async (req, res) => {
 const getGroups = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT g.*, u.name as creator_name, COUNT(DISTINCT gm.user_id) as member_count
+      `SELECT g.*, u.name as creator_name
        FROM groups g
        LEFT JOIN users u ON g.created_by = u.id
-       LEFT JOIN group_members gm ON g.id = gm.group_id
        WHERE g.id IN (SELECT group_id FROM group_members WHERE user_id = $1)
-       GROUP BY g.id, u.name
        ORDER BY g.created_at DESC`,
       [req.userId]
     );
 
-    res.json({ groups: result.rows });
+    // Fetch members and expense stats for each group
+    const groups = await Promise.all(
+      result.rows.map(async (group) => {
+        const [membersResult, expenseStatsResult] = await Promise.all([
+          pool.query(
+            `SELECT u.id, u.name, u.email, u.avatar_url
+             FROM group_members gm
+             JOIN users u ON gm.user_id = u.id
+             WHERE gm.group_id = $1
+             ORDER BY gm.joined_at`,
+            [group.id]
+          ),
+          pool.query(
+            `SELECT COUNT(*) as expense_count, COALESCE(SUM(amount), 0) as total_spent
+             FROM expenses
+             WHERE group_id = $1`,
+            [group.id]
+          ),
+        ]);
+        group.members = membersResult.rows;
+        group.expense_count = parseInt(expenseStatsResult.rows[0].expense_count);
+        group.total_spent = parseFloat(expenseStatsResult.rows[0].total_spent);
+        return group;
+      })
+    );
+
+    res.json({ groups });
   } catch (error) {
     console.error('Get groups error:', error);
     res.status(500).json({ error: 'Failed to fetch groups' });

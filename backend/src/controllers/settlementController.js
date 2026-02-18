@@ -4,7 +4,7 @@ const createSettlement = async (req, res) => {
   const client = await pool.connect();
 
   try {
-    const { group_id, to_user, amount, currency, date, notes } = req.body;
+    const { group_id, from_user, to_user, amount, currency, date, notes } = req.body;
 
     if (!group_id || !to_user || !amount) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -19,13 +19,16 @@ const createSettlement = async (req, res) => {
       return res.status(403).json({ error: 'Not a member of this group' });
     }
 
+    // Use from_user from request body if provided, otherwise default to the requesting user
+    const payer = from_user || req.userId;
+
     await client.query('BEGIN');
 
     const result = await client.query(
       `INSERT INTO settlements (group_id, from_user, to_user, amount, currency, date, notes)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [group_id, req.userId, to_user, amount, currency || 'USD', date || new Date().toISOString().split('T')[0], notes]
+      [group_id, payer, to_user, amount, currency || 'USD', date || new Date().toISOString().split('T')[0], notes]
     );
 
     await client.query('COMMIT');

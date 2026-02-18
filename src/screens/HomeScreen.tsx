@@ -26,7 +26,7 @@ type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { groups, expenses, isLoading, loadData, lastUpdated } = useStore();
+  const { groups, isLoading, loadData, lastUpdated } = useStore();
   const { profile } = useAuth();
   const currentUserId = profile?.id || '';
   const { colors, isDark } = useTheme();
@@ -47,14 +47,9 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [loadData]);
 
-  const getGroupBalance = (group: Group) => {
-    const groupExpenses = expenses.filter((e) => e.groupId === group.id);
-    return groupExpenses.reduce((sum, e) => sum + e.amount, 0);
-  };
-
   const renderGroupCard = ({ item, index }: { item: Group; index: number }) => {
-    const totalSpent = getGroupBalance(item);
-    const groupExpenses = expenses.filter((e) => e.groupId === item.id);
+    const totalSpent = item.totalSpent || 0;
+    const expenseCount = item.expenseCount || 0;
 
     return (
       <TouchableOpacity
@@ -106,7 +101,7 @@ export default function HomeScreen() {
 
           <View style={styles.statsContainer}>
             <View style={styles.stat}>
-              <Text style={[styles.statValue, { color: colors.text }]}>{groupExpenses.length}</Text>
+              <Text style={[styles.statValue, { color: colors.text }]}>{expenseCount}</Text>
               <Text style={[styles.statLabel, { color: colors.textMuted }]}>expenses</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.borderLight }]} />

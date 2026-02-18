@@ -4,7 +4,7 @@ const createExpense = async (req, res) => {
   const client = await pool.connect();
 
   try {
-    const { group_id, description, amount, currency, split_type, category, date, notes, splits } = req.body;
+    const { group_id, description, amount, currency, paid_by, split_type, category, date, notes, splits } = req.body;
 
     if (!group_id || !description || !amount || !splits || !Array.isArray(splits)) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -19,13 +19,16 @@ const createExpense = async (req, res) => {
       return res.status(403).json({ error: 'Not a member of this group' });
     }
 
+    // Use paid_by from request body if provided, otherwise default to the requesting user
+    const payer = paid_by || req.userId;
+
     await client.query('BEGIN');
 
     const expenseResult = await client.query(
       `INSERT INTO expenses (group_id, description, amount, currency, paid_by, split_type, category, date, notes)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [group_id, description, amount, currency || 'USD', req.userId, split_type || 'equal', category, date || new Date().toISOString().split('T')[0], notes]
+      [group_id, description, amount, currency || 'USD', payer, split_type || 'equal', category, date || new Date().toISOString().split('T')[0], notes]
     );
 
     const expense = expenseResult.rows[0];

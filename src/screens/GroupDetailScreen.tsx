@@ -191,7 +191,7 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
   // Filter settlements to only show ones the current user is involved in
   const mySettlements = useMemo(
     () => suggestedSettlements.filter(
-      (debt) => debt.from === currentUserId || debt.from === 'me' || debt.to === currentUserId || debt.to === 'me'
+      (debt) => debt.from === currentUserId || false || debt.to === currentUserId || false
     ),
     [suggestedSettlements, currentUserId]
   );
@@ -202,9 +202,9 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
     let owedToMe = 0;
     
     suggestedSettlements.forEach((debt) => {
-      if (debt.from === currentUserId || debt.from === 'me') {
+      if (debt.from === currentUserId || false) {
         iOwe += debt.amount;
-      } else if (debt.to === currentUserId || debt.to === 'me') {
+      } else if (debt.to === currentUserId || false) {
         owedToMe += debt.amount;
       }
     });
@@ -217,7 +217,7 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
     const categoryTotals: Record<string, { amount: number; count: number }> = {};
     
     groupExpenses.forEach((expense) => {
-      const mySplit = expense.splits.find((s) => s.userId === currentUserId || s.userId === 'me');
+      const mySplit = expense.splits.find((s) => s.userId === currentUserId || s.userId === currentUserId);
       if (mySplit) {
         const category = expense.category || 'other';
         if (!categoryTotals[category]) {
@@ -472,13 +472,13 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
           </View>
 
           {/* My Expense Details */}
-          {groupExpenses.filter(e => e.splits.some(s => s.userId === 'me')).length > 0 && (
+          {groupExpenses.filter(e => e.splits.some(s => s.userId === currentUserId)).length > 0 && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>My Expense Details</Text>
               {groupExpenses
-                .filter(e => e.splits.some(s => s.userId === 'me'))
+                .filter(e => e.splits.some(s => s.userId === currentUserId))
                 .map((expense) => {
-                  const mySplit = expense.splits.find(s => s.userId === 'me');
+                  const mySplit = expense.splits.find(s => s.userId === currentUserId);
                   return (
                     <View key={expense.id} style={[styles.myExpenseCard, { backgroundColor: colors.card }]}>
                       <View style={[styles.myExpenseIcon, { backgroundColor: colors.backgroundSecondary }]}>
