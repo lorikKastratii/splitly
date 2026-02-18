@@ -22,7 +22,7 @@ import { formatCurrency } from '../lib/utils';
 import { api } from '../lib/api';
 
 export default function AccountScreen() {
-  const { groups, expenses, friends, loadData } = useStore();
+  const { groups, friends, loadData } = useStore();
   const { colors, toggleTheme, isDark } = useTheme();
   const { user, signOut, profile: authProfile, updateProfile: updateAuthProfile } = useAuth();
   const insets = useSafeAreaInsets();
@@ -44,7 +44,8 @@ export default function AccountScreen() {
     }
   }, [authProfile]);
 
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalExpenses = groups.reduce((sum, g) => sum + (g.totalSpent || 0), 0);
+  const totalExpenseCount = groups.reduce((sum, g) => sum + (g.expenseCount || 0), 0);
   const totalGroups = groups.length;
   const totalFriends = friends.length;
 
@@ -256,7 +257,7 @@ export default function AccountScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statCard}><Text style={styles.statValue}>{totalGroups}</Text><Text style={styles.statLabel}>Groups</Text></View>
             <View style={styles.statCard}><Text style={styles.statValue}>{totalFriends}</Text><Text style={styles.statLabel}>Friends</Text></View>
-            <View style={styles.statCard}><Text style={styles.statValue}>{expenses.length}</Text><Text style={styles.statLabel}>Expenses</Text></View>
+            <View style={styles.statCard}><Text style={styles.statValue}>{totalExpenseCount}</Text><Text style={styles.statLabel}>Expenses</Text></View>
           </View>
 
           <View style={styles.totalCard}>
