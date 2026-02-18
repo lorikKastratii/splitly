@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useLayoutEffect, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useLayoutEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RouteProp } from '@react-navigation/native';
+import { RouteProp, useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useSupabaseStore as useStore } from '../store/supabaseStore';
 import { useAuth } from '../store/authContext';
@@ -113,9 +113,11 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
     setRefreshing(false);
   }, [loadData, fetchGroupData]);
 
-  useEffect(() => {
-    fetchGroupData();
-  }, [fetchGroupData]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchGroupData();
+    }, [fetchGroupData])
+  );
 
   // Get updated group from store
   const currentGroup = groups.find((g) => g.id === group.id) || group;

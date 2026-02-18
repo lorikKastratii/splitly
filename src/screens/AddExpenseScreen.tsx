@@ -105,7 +105,9 @@ export default function AddExpenseScreen({ navigation, route }: Props) {
     );
   }, [customAmounts]);
 
-  const handleSave = () => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
     if (!description.trim()) {
       Alert.alert('Missing Information', 'Please enter a description');
       return;
@@ -153,19 +155,25 @@ export default function AddExpenseScreen({ navigation, route }: Props) {
         }));
     }
 
-    addExpense({
-      groupId,
-      description: description.trim(),
-      amount: numericAmount,
-      currency: group?.currency || 'USD',
-      paidBy,
-      splits,
-      splitType: splitType === 'equal' ? 'equal' : 'exact',
-      category,
-      date: new Date().toISOString(),
-    });
-
-    navigation.goBack();
+    try {
+      setIsSaving(true);
+      await addExpense({
+        groupId,
+        description: description.trim(),
+        amount: numericAmount,
+        currency: group?.currency || 'USD',
+        paidBy,
+        splits,
+        splitType: splitType === 'equal' ? 'equal' : 'exact',
+        category,
+        date: new Date().toISOString(),
+      });
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to add expense. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const getMemberName = (userId: string) => {
@@ -494,11 +502,14 @@ export default function AddExpenseScreen({ navigation, route }: Props) {
       {/* Save Button */}
       <View style={[styles.footer, { backgroundColor: colors.card, borderTopColor: colors.borderLight }]}>
         <TouchableOpacity
-          style={[styles.saveButton, { backgroundColor: colors.primary }]}
+          style={[styles.saveButton, { backgroundColor: isSaving ? colors.textMuted : colors.primary }]}
           onPress={handleSave}
           activeOpacity={0.8}
+          disabled={isSaving}
         >
-          <Text style={[styles.saveButtonText, { color: colors.textInverse }]}>Add Expense</Text>
+          <Text style={[styles.saveButtonText, { color: colors.textInverse }]}>
+            {isSaving ? 'Saving...' : 'Add Expense'}
+          </Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
