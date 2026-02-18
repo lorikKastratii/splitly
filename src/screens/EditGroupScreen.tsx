@@ -11,6 +11,7 @@ import {
   Platform,
   Image,
   Share,
+  ActivityIndicator,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import * as MailComposer from 'expo-mail-composer';
@@ -19,6 +20,7 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useSupabaseStore as useStore } from '../store/supabaseStore';
 import { useAuth } from '../store/authContext';
+import { api } from '../lib/api';
 import { User, Currency } from '../types';
 import { useTheme } from '../theme/ThemeContext';
 import { shadows } from '../theme/colors';
@@ -57,6 +59,7 @@ export default function EditGroupScreen({ navigation, route }: Props) {
   const [name, setName] = useState(group?.name || '');
   const [description, setDescription] = useState(group?.description || '');
   const [groupImage, setGroupImage] = useState<string | undefined>(group?.imageUri);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [memberName, setMemberName] = useState('');
   const [memberEmail, setMemberEmail] = useState('');
   const [currency, setCurrency] = useState<Currency>(group?.currency || 'USD');
@@ -118,7 +121,18 @@ export default function EditGroupScreen({ navigation, route }: Props) {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setGroupImage(result.assets[0].uri);
+      const localUri = result.assets[0].uri;
+      setGroupImage(localUri);
+      setUploadingImage(true);
+      try {
+        const uploadResponse = await api.uploadImage(localUri);
+        setGroupImage(api.getFullUrl(uploadResponse.url));
+      } catch (error) {
+        Alert.alert('Error', 'Failed to upload image. Please try again.');
+        setGroupImage(group?.imageUri);
+      } finally {
+        setUploadingImage(false);
+      }
     }
   };
 
@@ -177,6 +191,7 @@ export default function EditGroupScreen({ navigation, route }: Props) {
             style={[styles.imagePickerCard, { backgroundColor: colors.card }]}
             onPress={handlePickImage}
             activeOpacity={0.7}
+            disabled={uploadingImage}
           >
             {groupImage ? (
               <Image source={{ uri: groupImage }} style={styles.groupImagePreview} />
@@ -185,13 +200,22 @@ export default function EditGroupScreen({ navigation, route }: Props) {
                 <Text style={styles.imagePlaceholderIcon}>📷</Text>
               </View>
             )}
-            <View style={[styles.imageEditBadge, { backgroundColor: colors.primary }]}>
-              <Text style={[styles.imageEditBadgeText, { color: colors.textInverse }]}>
-                {groupImage ? '✏️' : '+'}
-              </Text>
-            </View>
-            {!groupImage && (
+            {uploadingImage ? (
+              <View style={[styles.imageEditBadge, { backgroundColor: colors.primary }]}>
+                <ActivityIndicator size="small" color={colors.textInverse} />
+              </View>
+            ) : (
+              <View style={[styles.imageEditBadge, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.imageEditBadgeText, { color: colors.textInverse }]}>
+                  {groupImage ? '✏️' : '+'}
+                </Text>
+              </View>
+            )}
+            {!groupImage && !uploadingImage && (
               <Text style={[styles.imagePlaceholderText, { color: colors.textSecondary }]}>Add Group Photo</Text>
+            )}
+            {uploadingImage && (
+              <Text style={[styles.imagePlaceholderText, { color: colors.textSecondary }]}>Uploading...</Text>
             )}
           </TouchableOpacity>
 
@@ -390,9 +414,10 @@ export default function EditGroupScreen({ navigation, route }: Props) {
       {/* Save Button */}
       <View style={[styles.footer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
         <TouchableOpacity
-          style={[styles.saveButton, { backgroundColor: colors.primary }]}
+          style={[styles.saveButton, { backgroundColor: uploadingImage ? colors.textMuted : colors.primary }]}
           onPress={handleSave}
           activeOpacity={0.8}
+          disabled={uploadingImage}
         >
           <Text style={[styles.saveButtonText, { color: colors.textInverse }]}>Save Changes</Text>
         </TouchableOpacity>

@@ -288,6 +288,11 @@ class ApiClient {
     });
   }
 
+  getFullUrl(path: string): string {
+    if (path.startsWith('http')) return path;
+    return this.baseUrl.replace(/\/api$/, '') + path;
+  }
+
   async uploadImage(imageUri: string) {
     const token = await this.getAuthToken();
 

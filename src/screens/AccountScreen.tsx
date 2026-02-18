@@ -71,7 +71,7 @@ export default function AccountScreen() {
       try {
         // Upload via backend API
         const uploadResponse = await api.uploadImage(localUri);
-        const publicUrl = uploadResponse.url;
+        const publicUrl = api.getFullUrl(uploadResponse.url);
 
         // Update profile with the uploaded URL
         await updateAuthProfile({ avatar_url: publicUrl });

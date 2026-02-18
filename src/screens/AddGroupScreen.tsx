@@ -10,11 +10,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useSupabaseStore as useStore } from '../store/supabaseStore';
 import { useAuth } from '../store/authContext';
+import { api } from '../lib/api';
 import { User, Currency, Friend } from '../types';
 import { useTheme } from '../theme/ThemeContext';
 import { shadows } from '../theme/colors';
@@ -43,6 +45,7 @@ export default function AddGroupScreen({ navigation }: Props) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [groupImage, setGroupImage] = useState<string | undefined>(undefined);
+  const [uploadingImage, setUploadingImage] = useState(false);
   
   const getAvatarColor = (index: number) => {
     return colors.avatarColors[index % colors.avatarColors.length];
@@ -79,7 +82,18 @@ export default function AddGroupScreen({ navigation }: Props) {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setGroupImage(result.assets[0].uri);
+      const localUri = result.assets[0].uri;
+      setGroupImage(localUri);
+      setUploadingImage(true);
+      try {
+        const uploadResponse = await api.uploadImage(localUri);
+        setGroupImage(api.getFullUrl(uploadResponse.url));
+      } catch (error) {
+        Alert.alert('Error', 'Failed to upload image. Please try again.');
+        setGroupImage(undefined);
+      } finally {
+        setUploadingImage(false);
+      }
     }
   };
 
@@ -163,6 +177,7 @@ export default function AddGroupScreen({ navigation }: Props) {
             style={[styles.imagePickerCard, { backgroundColor: colors.card }]}
             onPress={handlePickImage}
             activeOpacity={0.7}
+            disabled={uploadingImage}
           >
             {groupImage ? (
               <Image source={{ uri: groupImage }} style={styles.groupImagePreview} />
@@ -171,13 +186,22 @@ export default function AddGroupScreen({ navigation }: Props) {
                 <Text style={styles.imagePlaceholderIcon}>📷</Text>
               </View>
             )}
-            <View style={[styles.imageEditBadge, { backgroundColor: colors.primary }]}>
-              <Text style={[styles.imageEditBadgeText, { color: colors.textInverse }]}>
-                {groupImage ? '✏️' : '+'}
-              </Text>
-            </View>
-            {!groupImage && (
+            {uploadingImage ? (
+              <View style={[styles.imageEditBadge, { backgroundColor: colors.primary }]}>
+                <ActivityIndicator size="small" color={colors.textInverse} />
+              </View>
+            ) : (
+              <View style={[styles.imageEditBadge, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.imageEditBadgeText, { color: colors.textInverse }]}>
+                  {groupImage ? '✏️' : '+'}
+                </Text>
+              </View>
+            )}
+            {!groupImage && !uploadingImage && (
               <Text style={[styles.imagePlaceholderText, { color: colors.textSecondary }]}>Add Group Photo</Text>
+            )}
+            {uploadingImage && (
+              <Text style={[styles.imagePlaceholderText, { color: colors.textSecondary }]}>Uploading...</Text>
             )}
           </TouchableOpacity>
 
@@ -333,10 +357,10 @@ export default function AddGroupScreen({ navigation }: Props) {
           style={[
             styles.saveButton,
             { backgroundColor: colors.primary },
-            !name.trim() && [styles.saveButtonDisabled, { opacity: 0.5 }],
+            (!name.trim() || uploadingImage) && [styles.saveButtonDisabled, { opacity: 0.5 }],
           ]}
           onPress={handleSave}
-          disabled={!name.trim()}
+          disabled={!name.trim() || uploadingImage}
           activeOpacity={0.8}
         >
           <Text style={[styles.saveButtonText, { color: colors.textInverse }]}>Create Group</Text>
