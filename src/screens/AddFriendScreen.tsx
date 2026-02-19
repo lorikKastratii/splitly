@@ -19,6 +19,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { shadows } from '../theme/colors';
 import { api } from '../lib/api';
 import Avatar from '../components/Avatar';
+import NotificationModal from '../components/NotificationModal';
 
 type AddFriendScreenNavigationProp = StackNavigationProp<RootStackParamList, 'AddFriend'>;
 
@@ -42,6 +43,11 @@ export default function AddFriendScreen({ navigation }: Props) {
   const [searching, setSearching] = useState(false);
   const [adding, setAdding] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [successModal, setSuccessModal] = useState<{ visible: boolean; title: string; message: string }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
@@ -105,11 +111,11 @@ export default function AddFriendScreen({ navigation }: Props) {
     setAdding(true);
     try {
       await sendFriendRequest(searchResult.id);
-      Alert.alert(
-        'Request Sent!',
-        `A friend request has been sent to @${searchResult.name}. They need to accept it to become friends.`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+      setSuccessModal({
+        visible: true,
+        title: 'Request Sent!',
+        message: `A friend request has been sent to @${searchResult.name}. They need to accept it to become friends.`,
+      });
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to send friend request');
     } finally {
@@ -122,6 +128,16 @@ export default function AddFriendScreen({ navigation }: Props) {
       style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <NotificationModal
+        visible={successModal.visible}
+        type="success"
+        title={successModal.title}
+        message={successModal.message}
+        onClose={() => {
+          setSuccessModal({ visible: false, title: '', message: '' });
+          navigation.goBack();
+        }}
+      />
       <ScrollView
         style={[styles.scrollView, { backgroundColor: colors.background }]}
         contentContainerStyle={styles.scrollContent}

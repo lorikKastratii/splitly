@@ -146,13 +146,13 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
             style={styles.headerButton}
             onPress={handleShareInviteCode}
           >
-            <Text style={[styles.headerButtonText, { color: colors.textInverse }]}>Share</Text>
+            <Text style={styles.headerButtonIcon}>📤</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerButton}
             onPress={() => navigation.navigate('EditGroup', { groupId: currentGroup.id })}
           >
-            <Text style={[styles.headerButtonText, { color: colors.textInverse }]}>Edit</Text>
+            <Text style={styles.headerButtonIcon}>✏️</Text>
           </TouchableOpacity>
         </View>
       ),
@@ -683,12 +683,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
-  headerButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
+  headerButtonIcon: {
+    fontSize: 22,
   },
   summaryHeader: {
     paddingHorizontal: 20,

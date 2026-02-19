@@ -112,22 +112,58 @@ const updateFriend = async (req, res) => {
 };
 
 const deleteFriend = async (req, res) => {
+  const client = await pool.connect();
   try {
     const { id } = req.params;
 
-    const result = await pool.query(
-      'DELETE FROM friends WHERE id = $1 AND user_id = $2 RETURNING *',
+    // Get the record first so we know who the other user is
+    const friendRecord = await client.query(
+      'SELECT * FROM friends WHERE id = $1 AND user_id = $2',
       [id, req.userId]
     );
 
-    if (result.rows.length === 0) {
+    if (friendRecord.rows.length === 0) {
+      client.release();
       return res.status(404).json({ error: 'Friend not found' });
     }
 
+    const { friend_user_id } = friendRecord.rows[0];
+
+    await client.query('BEGIN');
+
+    // Delete this user's friend record
+    await client.query(
+      'DELETE FROM friends WHERE id = $1 AND user_id = $2',
+      [id, req.userId]
+    );
+
+    // Delete the reverse record so the other user's list is also updated
+    if (friend_user_id) {
+      await client.query(
+        'DELETE FROM friends WHERE user_id = $1 AND friend_user_id = $2',
+        [friend_user_id, req.userId]
+      );
+    }
+
+    // Delete the friend_requests record so both users can re-add each other later
+    if (friend_user_id) {
+      await client.query(
+        `DELETE FROM friend_requests
+         WHERE (from_user_id = $1 AND to_user_id = $2)
+            OR (from_user_id = $2 AND to_user_id = $1)`,
+        [req.userId, friend_user_id]
+      );
+    }
+
+    await client.query('COMMIT');
+
     res.json({ message: 'Friend deleted successfully' });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Delete friend error:', error);
     res.status(500).json({ error: 'Failed to delete friend' });
+  } finally {
+    client.release();
   }
 };
 

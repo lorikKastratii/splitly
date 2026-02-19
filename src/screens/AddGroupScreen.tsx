@@ -11,6 +11,7 @@ import {
   Platform,
   Image,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -58,12 +59,68 @@ export default function AddGroupScreen({ navigation }: Props) {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [createdInviteCode, setCreatedInviteCode] = useState('');
 
+  // Search to add members by username/email
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberSearching, setMemberSearching] = useState(false);
+  const [memberSearchResult, setMemberSearchResult] = useState<{ id: string; name: string; email: string; avatar_url?: string } | null>(null);
+  const [memberSearchNotFound, setMemberSearchNotFound] = useState(false);
+  const [pendingMembers, setPendingMembers] = useState<{ id: string; name: string; email: string }[]>([]);
+
   const handleToggleFriend = (friendId: string) => {
     if (selectedFriendIds.includes(friendId)) {
       setSelectedFriendIds(selectedFriendIds.filter(id => id !== friendId));
     } else {
       setSelectedFriendIds([...selectedFriendIds, friendId]);
     }
+  };
+
+  const handleSearchMember = async () => {
+    const query = memberSearch.trim();
+    if (!query) return;
+
+    if (query.toLowerCase() === profile?.username?.toLowerCase()) {
+      Alert.alert('Cannot add yourself', "You are already the group creator.");
+      return;
+    }
+
+    setMemberSearching(true);
+    setMemberSearchResult(null);
+    setMemberSearchNotFound(false);
+
+    try {
+      const response = await api.searchUsers(query);
+      if (!response.user) {
+        setMemberSearchNotFound(true);
+      } else {
+        const data = response.user;
+        // Already in pending or already a selected friend
+        if (pendingMembers.some(m => m.id === data.id)) {
+          Alert.alert('Already added', `@${data.name} is already in the list.`);
+          setMemberSearch('');
+          return;
+        }
+        setMemberSearchResult(data);
+      }
+    } catch {
+      setMemberSearchNotFound(true);
+    } finally {
+      setMemberSearching(false);
+    }
+  };
+
+  const handleAddPendingMember = () => {
+    if (!memberSearchResult) return;
+    setPendingMembers(prev => [...prev, {
+      id: memberSearchResult.id,
+      name: memberSearchResult.name,
+      email: memberSearchResult.email,
+    }]);
+    setMemberSearchResult(null);
+    setMemberSearch('');
+  };
+
+  const handleRemovePendingMember = (id: string) => {
+    setPendingMembers(prev => prev.filter(m => m.id !== id));
   };
 
   const handlePickImage = async () => {
@@ -131,6 +188,19 @@ export default function AddGroupScreen({ navigation }: Props) {
             } catch (err) {
               console.error(`Failed to add friend ${friend.username}:`, err);
             }
+          }
+        }
+      }
+
+      // Add pending members found via search
+      if (pendingMembers.length > 0) {
+        console.log('👥 Adding searched members to group...');
+        for (const member of pendingMembers) {
+          try {
+            await addMemberToGroup(createdGroup.id, { id: member.id } as any);
+            console.log(`✅ Added member ${member.name} to group`);
+          } catch (err) {
+            console.error(`Failed to add member ${member.name}:`, err);
           }
         }
       }
@@ -286,7 +356,7 @@ export default function AddGroupScreen({ navigation }: Props) {
           </Text>
 
           {/* Select from Friends */}
-          {friends.length > 0 ? (
+          {friends.length > 0 && (
             <View style={[styles.friendsList, { backgroundColor: colors.card }]}>
               {friends.map((friend, index) => {
                 const isSelected = selectedFriendIds.includes(friend.id);
@@ -330,21 +400,116 @@ export default function AddGroupScreen({ navigation }: Props) {
                 );
               })}
             </View>
-          ) : (
-            <View style={styles.emptyMembers}>
-              <Text style={styles.emptyMembersIcon}>👥</Text>
-              <Text style={[styles.emptyMembersText, { color: colors.text }]}>No friends yet</Text>
-              <Text style={[styles.emptyMembersSubtext, { color: colors.textSecondary }]}>
-                Add friends first, then you can add them to groups
+          )}
+
+          {/* OR divider when friends exist */}
+          {friends.length > 0 && (
+            <View style={styles.orDivider}>
+              <View style={[styles.orLine, { backgroundColor: colors.border }]} />
+              <Text style={[styles.orText, { color: colors.textMuted }]}>or add by username</Text>
+              <View style={[styles.orLine, { backgroundColor: colors.border }]} />
+            </View>
+          )}
+
+          {/* Search by username / email */}
+          <View style={[styles.searchMemberCard, { backgroundColor: colors.card }]}>
+            {friends.length === 0 && (
+              <Text style={[styles.searchMemberHint, { color: colors.textSecondary }]}>
+                Search for people by their username or email to add them to this group.
               </Text>
+            )}
+            <View style={styles.searchMemberRow}>
+              <TextInput
+                style={[styles.searchMemberInput, { backgroundColor: colors.backgroundSecondary, color: colors.text, borderColor: colors.border }]}
+                placeholder="Username or email..."
+                placeholderTextColor={colors.textMuted}
+                value={memberSearch}
+                onChangeText={text => {
+                  setMemberSearch(text);
+                  setMemberSearchResult(null);
+                  setMemberSearchNotFound(false);
+                }}
+                autoCapitalize="none"
+                autoCorrect={false}
+                onSubmitEditing={handleSearchMember}
+                returnKeyType="search"
+              />
+              <TouchableOpacity
+                style={[styles.searchMemberButton, { backgroundColor: colors.primary }]}
+                onPress={handleSearchMember}
+                disabled={memberSearching || !memberSearch.trim()}
+                activeOpacity={0.8}
+              >
+                {memberSearching ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.searchMemberButtonText}>🔍</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Search result */}
+            {memberSearchResult && (
+              <View style={[styles.searchResultRow, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+                <View style={[styles.searchResultAvatar, { backgroundColor: getAvatarColor(0) }]}>
+                  <Text style={[styles.friendAvatarText, { color: colors.textInverse }]}>
+                    {memberSearchResult.name[0].toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.searchResultInfo}>
+                  <Text style={[styles.friendName, { color: colors.text }]}>@{memberSearchResult.name}</Text>
+                  <Text style={[styles.friendEmail, { color: colors.textSecondary }]}>{memberSearchResult.email}</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.addFriendButton, { backgroundColor: colors.success }]}
+                  onPress={handleAddPendingMember}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.addFriendButtonText, { color: colors.textInverse }]}>+ Add</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Not found */}
+            {memberSearchNotFound && (
+              <Text style={[styles.searchNotFound, { color: colors.danger }]}>
+                No user found for "{memberSearch.trim()}"
+              </Text>
+            )}
+          </View>
+
+          {/* Pending members added via search */}
+          {pendingMembers.length > 0 && (
+            <View style={[styles.pendingMembersList, { backgroundColor: colors.card }]}>
+              <Text style={[styles.pendingMembersLabel, { color: colors.textSecondary }]}>Added via search:</Text>
+              {pendingMembers.map(member => (
+                <View key={member.id} style={[styles.friendItem, { borderBottomColor: colors.border }]}>
+                  <View style={[styles.friendAvatar, { backgroundColor: getAvatarColor(1) }]}>
+                    <Text style={[styles.friendAvatarText, { color: colors.textInverse }]}>
+                      {member.name[0].toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.friendInfo}>
+                    <Text style={[styles.friendName, { color: colors.text }]}>@{member.name}</Text>
+                    <Text style={[styles.friendEmail, { color: colors.textSecondary }]}>{member.email}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.removePendingButton, { backgroundColor: colors.dangerLight }]}
+                    onPress={() => handleRemovePendingMember(member.id)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.removePendingText, { color: colors.danger }]}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
             </View>
           )}
 
           {/* Selected count */}
-          {selectedFriendIds.length > 0 && (
+          {(selectedFriendIds.length > 0 || pendingMembers.length > 0) && (
             <View style={[styles.selectedCount, { backgroundColor: colors.primaryLight + '20' }]}>
               <Text style={[styles.selectedCountText, { color: colors.primary }]}>
-                {selectedFriendIds.length} friend{selectedFriendIds.length !== 1 ? 's' : ''} selected + you
+                {selectedFriendIds.length + pendingMembers.length} member{(selectedFriendIds.length + pendingMembers.length) !== 1 ? 's' : ''} selected + you
               </Text>
             </View>
           )}
@@ -713,5 +878,89 @@ const styles = StyleSheet.create({
   selectedCountText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  searchMemberCard: {
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    ...shadows.sm,
+  },
+  searchMemberHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  searchMemberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  searchMemberInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  searchMemberButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchMemberButtonText: {
+    fontSize: 18,
+  },
+  searchResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 10,
+    gap: 10,
+  },
+  searchResultAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchResultInfo: {
+    flex: 1,
+  },
+  searchNotFound: {
+    marginTop: 10,
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  pendingMembersList: {
+    borderRadius: 12,
+    marginBottom: 12,
+    overflow: 'hidden',
+    ...shadows.sm,
+  },
+  pendingMembersLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  removePendingButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removePendingText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

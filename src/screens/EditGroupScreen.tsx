@@ -60,10 +60,15 @@ export default function EditGroupScreen({ navigation, route }: Props) {
   const [description, setDescription] = useState(group?.description || '');
   const [groupImage, setGroupImage] = useState<string | undefined>(group?.imageUri);
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [memberName, setMemberName] = useState('');
-  const [memberEmail, setMemberEmail] = useState('');
   const [currency, setCurrency] = useState<Currency>(group?.currency || 'USD');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
+
+  // Add member by username search
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberSearching, setMemberSearching] = useState(false);
+  const [memberAdding, setMemberAdding] = useState(false);
+  const [memberSearchResult, setMemberSearchResult] = useState<{ id: string; name: string; email: string; avatar_url?: string } | null>(null);
+  const [memberSearchNotFound, setMemberSearchNotFound] = useState(false);
 
   if (!group) {
     return (
@@ -73,16 +78,60 @@ export default function EditGroupScreen({ navigation, route }: Props) {
     );
   }
 
-  const handleAddMember = () => {
-    if (memberName.trim()) {
-      const newMember: User = {
-        id: Date.now().toString(),
-        name: memberName.trim(),
-        email: memberEmail.trim() || undefined,
-      };
-      addMemberToGroup(groupId, newMember);
-      setMemberName('');
-      setMemberEmail('');
+  const handleSearchMember = async () => {
+    const query = memberSearch.trim();
+    if (!query) return;
+
+    if (query.toLowerCase() === profile?.username?.toLowerCase()) {
+      Alert.alert('Cannot add yourself', 'You are already a member of this group.');
+      return;
+    }
+
+    // Check if already a member
+    const alreadyMember = group.members.some(
+      (m) => m.username?.toLowerCase() === query.toLowerCase()
+    );
+    if (alreadyMember) {
+      Alert.alert('Already a member', `@${query} is already in this group.`);
+      return;
+    }
+
+    setMemberSearching(true);
+    setMemberSearchResult(null);
+    setMemberSearchNotFound(false);
+
+    try {
+      const response = await api.searchUsers(query);
+      if (!response.user) {
+        setMemberSearchNotFound(true);
+      } else {
+        const data = response.user;
+        const alreadyById = group.members.some((m) => m.id === data.id);
+        if (alreadyById) {
+          Alert.alert('Already a member', `@${data.name} is already in this group.`);
+          setMemberSearch('');
+          return;
+        }
+        setMemberSearchResult(data);
+      }
+    } catch {
+      setMemberSearchNotFound(true);
+    } finally {
+      setMemberSearching(false);
+    }
+  };
+
+  const handleAddSearchedMember = async () => {
+    if (!memberSearchResult) return;
+    setMemberAdding(true);
+    try {
+      await addMemberToGroup(groupId, { id: memberSearchResult.id } as any);
+      setMemberSearchResult(null);
+      setMemberSearch('');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to add member');
+    } finally {
+      setMemberAdding(false);
     }
   };
 
@@ -338,35 +387,74 @@ export default function EditGroupScreen({ navigation, route }: Props) {
           </Text>
 
           <View style={[styles.addMemberCard, { backgroundColor: colors.card }]}>
-            <View style={styles.addMemberInputs}>
+            <Text style={[styles.addMemberLabel, { color: colors.textSecondary }]}>
+              Search by username to add a member
+            </Text>
+            <View style={styles.addMemberRow}>
               <TextInput
-                style={[styles.memberNameInput, { color: colors.text, borderBottomColor: colors.border }]}
-                value={memberName}
-                onChangeText={setMemberName}
-                placeholder="Name"
+                style={[styles.addMemberInput, { backgroundColor: colors.backgroundSecondary, color: colors.text, borderColor: colors.border }]}
+                value={memberSearch}
+                onChangeText={text => {
+                  setMemberSearch(text);
+                  setMemberSearchResult(null);
+                  setMemberSearchNotFound(false);
+                }}
+                placeholder="Enter username..."
                 placeholderTextColor={colors.textMuted}
-              />
-              <TextInput
-                style={[styles.memberEmailInput, { color: colors.text }]}
-                value={memberEmail}
-                onChangeText={setMemberEmail}
-                placeholder="Email (for invites)"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
+                onSubmitEditing={handleSearchMember}
+                returnKeyType="search"
               />
+              <TouchableOpacity
+                style={[styles.addMemberSearchButton, { backgroundColor: colors.primary }, (!memberSearch.trim() || memberSearching) && { opacity: 0.5 }]}
+                onPress={handleSearchMember}
+                disabled={memberSearching || !memberSearch.trim()}
+                activeOpacity={0.8}
+              >
+                {memberSearching ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.addMemberSearchIcon}>🔍</Text>
+                )}
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={[
-                styles.addMemberButton,
-                { backgroundColor: colors.primary },
-                !memberName.trim() && [styles.addMemberButtonDisabled, { opacity: 0.5 }],
-              ]}
-              onPress={handleAddMember}
-              disabled={!memberName.trim()}
-            >
-              <Text style={[styles.addMemberButtonText, { color: colors.textInverse }]}>Add Member</Text>
-            </TouchableOpacity>
+
+            {/* Search result */}
+            {memberSearchResult && (
+              <View style={[styles.memberSearchResult, { backgroundColor: colors.backgroundSecondary, borderColor: colors.border }]}>
+                <Avatar
+                  name={memberSearchResult.name}
+                  index={0}
+                  size={36}
+                  userId={memberSearchResult.id}
+                  imageUri={memberSearchResult.avatar_url}
+                />
+                <View style={styles.memberSearchResultInfo}>
+                  <Text style={[styles.memberName, { color: colors.text }]}>@{memberSearchResult.name}</Text>
+                  <Text style={[styles.memberEmail, { color: colors.textSecondary }]}>{memberSearchResult.email}</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.addMemberConfirmButton, { backgroundColor: colors.success }, memberAdding && { opacity: 0.6 }]}
+                  onPress={handleAddSearchedMember}
+                  disabled={memberAdding}
+                  activeOpacity={0.8}
+                >
+                  {memberAdding ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={[styles.addMemberButtonText, { color: colors.textInverse }]}>+ Add</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Not found */}
+            {memberSearchNotFound && (
+              <Text style={[styles.memberSearchNotFound, { color: colors.danger }]}>
+                No user found for "{memberSearch.trim()}"
+              </Text>
+            )}
           </View>
 
           {/* Member List */}
@@ -562,33 +650,69 @@ const styles = StyleSheet.create({
   },
   addMemberCard: {
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
     marginBottom: 16,
     ...shadows.sm,
   },
-  addMemberInputs: {
-    marginBottom: 12,
+  addMemberLabel: {
+    fontSize: 13,
+    marginBottom: 10,
   },
-  memberNameInput: {
-    fontSize: 16,
-    borderBottomWidth: 1,
-    paddingVertical: 12,
-    marginBottom: 8,
+  addMemberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
-  memberEmailInput: {
-    fontSize: 16,
-    paddingVertical: 12,
+  addMemberInput: {
+    flex: 1,
+    fontSize: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  addMemberSearchButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addMemberSearchIcon: {
+    fontSize: 18,
+  },
+  memberSearchResult: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 10,
+    gap: 10,
+  },
+  memberSearchResultInfo: {
+    flex: 1,
+  },
+  addMemberConfirmButton: {
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   addMemberButton: {
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  addMemberButtonDisabled: {
-  },
   addMemberButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
+  },
+  memberSearchNotFound: {
+    marginTop: 10,
+    fontSize: 13,
+    textAlign: 'center',
   },
   membersList: {
     marginTop: 8,
