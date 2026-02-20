@@ -288,6 +288,13 @@ class ApiClient {
     });
   }
 
+  async createPaymentIntent(plan: 'monthly' | 'yearly' | 'lifetime'): Promise<{ clientSecret: string; paymentIntentId: string }> {
+    return await this.request('/payments/create-intent', {
+      method: 'POST',
+      body: { plan },
+    });
+  }
+
   getFullUrl(path: string): string {
     if (path.startsWith('http')) return path;
     return this.baseUrl.replace(/\/api$/, '') + path;

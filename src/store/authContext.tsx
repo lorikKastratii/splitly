@@ -3,15 +3,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../lib/api';
 import { socketClient } from '../lib/socket';
 
+export type SubscriptionTier = 'free' | 'monthly' | 'yearly' | 'lifetime';
+
 interface AuthContextType {
   user: User | null;
   session: any; // For compatibility with old screens
   profile: UserProfile | null; // For compatibility with old screens
   loading: boolean;
+  subscriptionTier: SubscriptionTier;
+  subscriptionExpiresAt: Date | null;
+  isPremium: boolean;
   signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: Error | null }>;
+  setPremium: (tier: SubscriptionTier, expiresAt: Date | null) => Promise<void>;
 }
 
 interface UserProfile {
@@ -31,14 +37,48 @@ interface User {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const SUBSCRIPTION_STORAGE_KEY = 'subscription';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
+  const [subscriptionExpiresAt, setSubscriptionExpiresAt] = useState<Date | null>(null);
+
+  const isPremium = React.useMemo(() => {
+    if (subscriptionTier === 'free') return false;
+    if (subscriptionTier === 'lifetime') return true;
+    if (!subscriptionExpiresAt) return false;
+    return subscriptionExpiresAt > new Date();
+  }, [subscriptionTier, subscriptionExpiresAt]);
 
   useEffect(() => {
     checkAuthStatus();
+    loadSubscription();
   }, []);
+
+  const loadSubscription = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
+      if (stored) {
+        const { tier, expiresAt } = JSON.parse(stored);
+        setSubscriptionTier(tier as SubscriptionTier);
+        setSubscriptionExpiresAt(expiresAt ? new Date(expiresAt) : null);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const setPremium = async (tier: SubscriptionTier, expiresAt: Date | null) => {
+    setSubscriptionTier(tier);
+    setSubscriptionExpiresAt(expiresAt);
+    await AsyncStorage.setItem(
+      SUBSCRIPTION_STORAGE_KEY,
+      JSON.stringify({ tier, expiresAt: expiresAt?.toISOString() ?? null })
+    );
+  };
 
   const checkAuthStatus = async () => {
     try {
@@ -123,7 +163,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         'expenses',
         'settlements',
         'friends',
+        SUBSCRIPTION_STORAGE_KEY,
       ]);
+      setSubscriptionTier('free');
+      setSubscriptionExpiresAt(null);
     } catch (error) {
       console.error('Sign out error:', error);
     }
@@ -158,10 +201,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         session: user ? { user } : null, // Compatibility
         profile,
         loading,
+        subscriptionTier,
+        subscriptionExpiresAt,
+        isPremium,
         signUp,
         signIn,
         signOut,
         updateProfile,
+        setPremium,
       }}
     >
       {children}

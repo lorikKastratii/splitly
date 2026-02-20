@@ -40,9 +40,10 @@ interface Props {
 type TabType = 'expenses' | 'balances' | 'myExpenses';
 
 export default function GroupDetailScreen({ navigation, route }: Props) {
+  const FREE_EXPENSE_LIMIT = 2;
   const { group } = route.params;
   const { groups, addSettlement, loadData, lastUpdated } = useStore();
-  const { profile } = useAuth();
+  const { profile, isPremium } = useAuth();
   const currentUserId = profile?.id || '';
   const [activeTab, setActiveTab] = useState<TabType>('expenses');
   const [refreshing, setRefreshing] = useState(false);
@@ -700,7 +701,20 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
       {/* FAB */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.primary }]}
-        onPress={() => navigation.navigate('AddExpense', { groupId: currentGroup.id })}
+        onPress={() => {
+          if (!isPremium && localExpenses.length >= FREE_EXPENSE_LIMIT) {
+            Alert.alert(
+              'Free Plan Limit',
+              `Free plan allows ${FREE_EXPENSE_LIMIT} expenses per group. Upgrade to Premium for unlimited expenses.`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Upgrade', onPress: () => navigation.navigate('Payment') },
+              ]
+            );
+            return;
+          }
+          navigation.navigate('AddExpense', { groupId: currentGroup.id });
+        }}
         activeOpacity={0.8}
       >
         <Text style={[styles.fabIcon, { color: colors.textInverse }]}>+</Text>

@@ -36,7 +36,13 @@
     },
     "owner": "lorikk",
     "plugins": [
-      "expo-mail-composer"
+      "expo-mail-composer",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.splitly.app"
+        }
+      ]
     ]
   }
 }

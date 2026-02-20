@@ -3,11 +3,14 @@ import React, { useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StripeProvider } from '@stripe/stripe-react-native';
 import AppNavigator from './src/navigation/AppNavigator';
 import { ThemeProvider } from './src/theme/ThemeContext';
 import { AuthProvider, useAuth } from './src/store/authContext';
 import { useSupabaseStore } from './src/store/supabaseStore';
 import AuthGate from './src/components/AuthGate';
+
+const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
 function AppContent() {
   const { user } = useAuth();
@@ -63,10 +66,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </ThemeProvider>
+    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY} merchantIdentifier="merchant.com.splitly.app">
+      <ThemeProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </ThemeProvider>
+    </StripeProvider>
   );
 }

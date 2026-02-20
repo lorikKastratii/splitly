@@ -71,6 +71,9 @@ eas-build-local/
 # Supabase local development
 .supabase/
 
+# Claude Code local settings
+.claude/settings.local.json
+
 # OS
 Thumbs.db
 

@@ -13,6 +13,8 @@ import {
   Switch,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import * as ImagePicker from 'expo-image-picker';
 import { useSupabaseStore as useStore } from '../store/supabaseStore';
 import { useAuth } from '../store/authContext';
@@ -20,11 +22,15 @@ import { useTheme } from '../theme/ThemeContext';
 import { shadows } from '../theme/colors';
 import { formatCurrency } from '../lib/utils';
 import { api } from '../lib/api';
+import { RootStackParamList } from '../navigation/AppNavigator';
+
+type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 export default function AccountScreen() {
+  const navigation = useNavigation<NavigationProp>();
   const { groups, friends, loadData } = useStore();
   const { colors, toggleTheme, isDark } = useTheme();
-  const { user, signOut, profile: authProfile, updateProfile: updateAuthProfile } = useAuth();
+  const { user, signOut, profile: authProfile, updateProfile: updateAuthProfile, isPremium, subscriptionTier, subscriptionExpiresAt } = useAuth();
   const insets = useSafeAreaInsets();
   
   const [showEditModal, setShowEditModal] = useState(false);
@@ -224,6 +230,20 @@ export default function AccountScreen() {
     notifItemTime: { fontSize: 12, color: colors.textMuted },
     clearNotifsButton: { margin: 16, padding: 16, borderRadius: 12, alignItems: 'center', backgroundColor: colors.dangerLight },
     clearNotifsText: { fontSize: 16, fontWeight: '500', color: colors.danger },
+    premiumCard: { borderRadius: 16, padding: 20, marginBottom: 24, ...shadows.md, overflow: 'hidden' },
+    premiumCardFree: { backgroundColor: colors.primary },
+    premiumCardPaid: { backgroundColor: colors.successLight, borderWidth: 1, borderColor: colors.success },
+    premiumBadgeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+    premiumBadgeIcon: { fontSize: 20, marginRight: 8 },
+    premiumBadgeText: { fontSize: 16, fontWeight: '600' },
+    premiumBadgeTextFree: { color: colors.textInverse },
+    premiumBadgeTextPaid: { color: colors.success },
+    premiumDescription: { fontSize: 14, marginBottom: 14, lineHeight: 20 },
+    premiumDescriptionFree: { color: 'rgba(255,255,255,0.85)' },
+    premiumDescriptionPaid: { color: colors.textSecondary },
+    premiumButton: { borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+    premiumButtonFree: { backgroundColor: colors.textInverse },
+    premiumExpiry: { fontSize: 13, color: colors.textSecondary, marginTop: 4 },
   });
 
   return (
@@ -254,6 +274,43 @@ export default function AccountScreen() {
         </View>
 
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Premium / Subscription Card */}
+          {!isPremium ? (
+            <TouchableOpacity
+              style={[styles.premiumCard, styles.premiumCardFree]}
+              onPress={() => navigation.navigate('Payment')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.premiumBadgeRow}>
+                <Text style={styles.premiumBadgeIcon}>✨</Text>
+                <Text style={[styles.premiumBadgeText, styles.premiumBadgeTextFree]}>Upgrade to Premium</Text>
+              </View>
+              <Text style={[styles.premiumDescription, styles.premiumDescriptionFree]}>
+                You're on the free plan (1 group, 2 expenses). Unlock unlimited for just $1/month.
+              </Text>
+              <View style={[styles.premiumButton, styles.premiumButtonFree]}>
+                <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 15 }}>See Plans →</Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.premiumCard, styles.premiumCardPaid]}>
+              <View style={styles.premiumBadgeRow}>
+                <Text style={styles.premiumBadgeIcon}>⭐</Text>
+                <Text style={[styles.premiumBadgeText, styles.premiumBadgeTextPaid]}>
+                  {subscriptionTier === 'lifetime' ? 'Lifetime Member' : subscriptionTier === 'yearly' ? 'Yearly Plan' : 'Monthly Plan'}
+                </Text>
+              </View>
+              <Text style={[styles.premiumDescription, styles.premiumDescriptionPaid]}>
+                You have unlimited groups and expenses.
+              </Text>
+              {subscriptionExpiresAt && (
+                <Text style={styles.premiumExpiry}>
+                  Renews: {subscriptionExpiresAt.toLocaleDateString()}
+                </Text>
+              )}
+            </View>
+          )}
+
           <View style={styles.statsRow}>
             <View style={styles.statCard}><Text style={styles.statValue}>{totalGroups}</Text><Text style={styles.statLabel}>Groups</Text></View>
             <View style={styles.statCard}><Text style={styles.statValue}>{totalFriends}</Text><Text style={styles.statLabel}>Friends</Text></View>

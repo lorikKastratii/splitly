@@ -9,6 +9,7 @@ import {
   StatusBar,
   Image,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -24,13 +25,30 @@ import Avatar from '../components/Avatar';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
+const FREE_GROUP_LIMIT = 1;
+
 export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { groups, isLoading, loadData, lastUpdated, subscribeToGroups } = useStore();
-  const { profile } = useAuth();
+  const { profile, isPremium } = useAuth();
   const currentUserId = profile?.id || '';
   const { colors, isDark } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
+
+  const handleCreateGroup = () => {
+    if (!isPremium && groups.length >= FREE_GROUP_LIMIT) {
+      Alert.alert(
+        'Free Plan Limit',
+        `You've reached the free plan limit of ${FREE_GROUP_LIMIT} group. Upgrade to Premium for unlimited groups.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Upgrade', onPress: () => navigation.navigate('Payment') },
+        ]
+      );
+      return;
+    }
+    navigation.navigate('AddGroup');
+  };
 
   const getAvatarColor = (index: number) => {
     return colors.avatarColors[index % colors.avatarColors.length];
@@ -150,7 +168,7 @@ export default function HomeScreen() {
           </Text>
           <TouchableOpacity
             style={[styles.emptyButton, { backgroundColor: colors.primary }]}
-            onPress={() => navigation.navigate('AddGroup')}
+            onPress={handleCreateGroup}
           >
             <Text style={[styles.emptyButtonText, { color: colors.textInverse }]}>Create Your First Group</Text>
           </TouchableOpacity>
@@ -187,7 +205,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.fab, { backgroundColor: colors.primary }]}
-            onPress={() => navigation.navigate('AddGroup')}
+            onPress={handleCreateGroup}
             activeOpacity={0.8}
           >
             <Text style={[styles.fabIcon, { color: colors.textInverse }]}>+</Text>

@@ -15,6 +15,7 @@ import AddExpenseScreen from '../screens/AddExpenseScreen';
 import EditGroupScreen from '../screens/EditGroupScreen';
 import AddFriendScreen from '../screens/AddFriendScreen';
 import JoinGroupScreen from '../screens/JoinGroupScreen';
+import PaymentScreen from '../screens/PaymentScreen';
 import { useTheme } from '../theme/ThemeContext';
 
 // Tab Navigator Types
@@ -34,6 +35,7 @@ export type RootStackParamList = {
   EditGroup: { groupId: string };
   AddFriend: undefined;
   JoinGroup: undefined;
+  Payment: undefined;
 };
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -192,6 +194,11 @@ export default function AppNavigator() {
           name="JoinGroup"
           component={JoinGroupScreen}
           options={{ title: 'Join Group', headerBackTitle: '' }}
+        />
+        <Stack.Screen
+          name="Payment"
+          component={PaymentScreen}
+          options={{ title: 'Upgrade to Premium', headerBackTitle: '' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

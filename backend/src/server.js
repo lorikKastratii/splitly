@@ -17,6 +17,7 @@ const settlementRoutes = require('./routes/settlementRoutes');
 const friendRoutes = require('./routes/friendRoutes');
 const friendRequestRoutes = require('./routes/friendRequestRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -48,6 +49,7 @@ app.use('/api/settlements', settlementRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/friend-requests', friendRequestRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/payments', paymentRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
