@@ -177,6 +177,12 @@ const updateGroup = async (req, res) => {
       values
     );
 
+    // Notify all group members of the update
+    const emitToGroup = req.app.get('emitToGroup');
+    if (emitToGroup) {
+      emitToGroup(id, 'group-updated', { groupId: id });
+    }
+
     res.json({ group: result.rows[0] });
   } catch (error) {
     console.error('Update group error:', error);
@@ -195,6 +201,12 @@ const deleteGroup = async (req, res) => {
 
     if (isCreator.rows.length === 0) {
       return res.status(403).json({ error: 'Only group creator can delete' });
+    }
+
+    // Notify all members before the group is deleted (room still exists)
+    const emitToGroup = req.app.get('emitToGroup');
+    if (emitToGroup) {
+      emitToGroup(id, 'group-deleted', { groupId: id });
     }
 
     await pool.query('DELETE FROM groups WHERE id = $1', [id]);
@@ -247,6 +259,12 @@ const joinGroupByCode = async (req, res) => {
 
     await client.query('COMMIT');
 
+    // Notify existing members that someone new joined
+    const emitToGroup = req.app.get('emitToGroup');
+    if (emitToGroup) {
+      emitToGroup(group.id, 'member-joined', { groupId: group.id, userId: req.userId });
+    }
+
     res.status(201).json({ group, message: 'Joined group successfully' });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -268,6 +286,12 @@ const leaveGroup = async (req, res) => {
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Not a member of this group' });
+    }
+
+    // Notify remaining members
+    const emitToGroup = req.app.get('emitToGroup');
+    if (emitToGroup) {
+      emitToGroup(id, 'member-left', { groupId: id, userId: req.userId });
     }
 
     res.json({ message: 'Left group successfully' });
@@ -320,6 +344,12 @@ const addMemberToGroup = async (req, res) => {
       'INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)',
       [id, user_id]
     );
+
+    // Notify existing group members
+    const emitToGroup = req.app.get('emitToGroup');
+    if (emitToGroup) {
+      emitToGroup(id, 'member-joined', { groupId: id, userId: user_id });
+    }
 
     res.status(201).json({ message: 'Member added successfully' });
   } catch (error) {

@@ -157,6 +157,15 @@ const deleteFriend = async (req, res) => {
 
     await client.query('COMMIT');
 
+    // Notify both users in real-time
+    const io = req.app.get('socketio');
+    if (io && friend_user_id) {
+      // Notify the removed friend that they were unfriended
+      io.to(`user-${friend_user_id}`).emit('friend-removed', { friendUserId: req.userId });
+      // Notify the requesting user too (for other devices/tabs)
+      io.to(`user-${req.userId}`).emit('friend-removed', { friendUserId: friend_user_id });
+    }
+
     res.json({ message: 'Friend deleted successfully' });
   } catch (error) {
     await client.query('ROLLBACK');

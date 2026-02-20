@@ -120,27 +120,39 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
     }, [fetchGroupData])
   );
 
-  // Real-time: refresh local data when group events arrive from socket
+  // Real-time: refresh local data when any event arrives for this group
   useEffect(() => {
-    const handleGroupEvent = (data: any) => {
-      // Only refresh if this event belongs to our group
+    const handleDataEvent = (data: any) => {
       const eventGroupId = data?.expense?.group_id || data?.settlement?.group_id || data?.groupId;
       if (eventGroupId && eventGroupId !== group.id) return;
       fetchGroupData();
     };
 
-    socketClient.on('expense-added', handleGroupEvent);
-    socketClient.on('expense-deleted', handleGroupEvent);
-    socketClient.on('settlement-added', handleGroupEvent);
-    socketClient.on('settlement-deleted', handleGroupEvent);
+    const handleGroupDeleted = (data: any) => {
+      if (data?.groupId !== group.id) return;
+      navigation.goBack();
+    };
+
+    socketClient.on('expense-added', handleDataEvent);
+    socketClient.on('expense-deleted', handleDataEvent);
+    socketClient.on('settlement-added', handleDataEvent);
+    socketClient.on('settlement-deleted', handleDataEvent);
+    socketClient.on('group-updated', handleDataEvent);
+    socketClient.on('member-joined', handleDataEvent);
+    socketClient.on('member-left', handleDataEvent);
+    socketClient.on('group-deleted', handleGroupDeleted);
 
     return () => {
-      socketClient.off('expense-added', handleGroupEvent);
-      socketClient.off('expense-deleted', handleGroupEvent);
-      socketClient.off('settlement-added', handleGroupEvent);
-      socketClient.off('settlement-deleted', handleGroupEvent);
+      socketClient.off('expense-added', handleDataEvent);
+      socketClient.off('expense-deleted', handleDataEvent);
+      socketClient.off('settlement-added', handleDataEvent);
+      socketClient.off('settlement-deleted', handleDataEvent);
+      socketClient.off('group-updated', handleDataEvent);
+      socketClient.off('member-joined', handleDataEvent);
+      socketClient.off('member-left', handleDataEvent);
+      socketClient.off('group-deleted', handleGroupDeleted);
     };
-  }, [group.id, fetchGroupData]);
+  }, [group.id, fetchGroupData, navigation]);
 
   // Get updated group from store
   const currentGroup = groups.find((g) => g.id === group.id) || group;

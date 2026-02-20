@@ -462,12 +462,56 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
       }).catch(console.error);
     };
 
+    // Group events
+    const handleGroupUpdated = (data: any) => {
+      // Re-fetch the updated group details
+      api.getGroups().then(res => {
+        const updated = mapGroups(res.groups || []);
+        set(state => ({
+          groups: state.groups.map(g => updated.find(u => u.id === g.id) || g),
+          lastUpdated: Date.now(),
+        }));
+      }).catch(console.error);
+    };
+
+    const handleGroupDeleted = (data: any) => {
+      set(state => ({
+        groups: state.groups.filter(g => g.id !== data.groupId),
+        expenses: state.expenses.filter(e => e.groupId !== data.groupId),
+        settlements: state.settlements.filter(s => s.groupId !== data.groupId),
+        lastUpdated: Date.now(),
+      }));
+    };
+
+    const handleMemberChange = (data: any) => {
+      // Refresh the affected group's member list
+      api.getGroups().then(res => {
+        const updated = mapGroups(res.groups || []);
+        set(state => ({
+          groups: state.groups.map(g => updated.find(u => u.id === g.id) || g),
+          lastUpdated: Date.now(),
+        }));
+      }).catch(console.error);
+    };
+
+    // Friend removed
+    const handleFriendRemoved = (data: any) => {
+      set(state => ({
+        friends: state.friends.filter(f => f.friendId !== data.friendUserId),
+      }));
+    };
+
     socketClient.on('expense-added', handleExpenseAdded);
     socketClient.on('expense-deleted', handleExpenseDeleted);
     socketClient.on('settlement-added', handleSettlementAdded);
     socketClient.on('settlement-deleted', handleSettlementDeleted);
     socketClient.on('friend-request-received', handleFriendRequestReceived);
     socketClient.on('friend-request-accepted', handleFriendRequestAccepted);
+    socketClient.on('group-updated', handleGroupUpdated);
+    socketClient.on('group-deleted', handleGroupDeleted);
+    socketClient.on('member-joined', handleMemberChange);
+    socketClient.on('member-left', handleMemberChange);
+    socketClient.on('friend-removed', handleFriendRemoved);
 
     return () => {
       socketClient.off('expense-added', handleExpenseAdded);
@@ -476,6 +520,11 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
       socketClient.off('settlement-deleted', handleSettlementDeleted);
       socketClient.off('friend-request-received', handleFriendRequestReceived);
       socketClient.off('friend-request-accepted', handleFriendRequestAccepted);
+      socketClient.off('group-updated', handleGroupUpdated);
+      socketClient.off('group-deleted', handleGroupDeleted);
+      socketClient.off('member-joined', handleMemberChange);
+      socketClient.off('member-left', handleMemberChange);
+      socketClient.off('friend-removed', handleFriendRemoved);
     };
   },
 }));
