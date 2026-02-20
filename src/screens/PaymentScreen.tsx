@@ -217,7 +217,7 @@ export default function PaymentScreen({ navigation }: Props) {
           <View style={styles.freeLimitsCard}>
             <Text style={styles.freeLimitsIcon}>⚠️</Text>
             <Text style={styles.freeLimitsText}>
-              Free plan: 1 group and 2 expenses per group. Upgrade to remove all limits.
+              Free plan: 1 group and 2 expenses total. Upgrade to remove all limits.
             </Text>
           </View>
 

@@ -42,9 +42,12 @@ type TabType = 'expenses' | 'balances' | 'myExpenses';
 export default function GroupDetailScreen({ navigation, route }: Props) {
   const FREE_EXPENSE_LIMIT = 2;
   const { group } = route.params;
-  const { groups, addSettlement, loadData, lastUpdated } = useStore();
+  const { groups, expenses: allExpenses, addSettlement, loadData, lastUpdated } = useStore();
   const { profile, isPremium } = useAuth();
   const currentUserId = profile?.id || '';
+
+  // Count total expenses this user has paid across ALL groups (for free tier limit)
+  const userTotalExpenseCount = allExpenses.filter((e) => e.paidBy === currentUserId).length;
   const [activeTab, setActiveTab] = useState<TabType>('expenses');
   const [refreshing, setRefreshing] = useState(false);
   const [localMembers, setLocalMembers] = useState<User[]>([]);
@@ -702,10 +705,10 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.primary }]}
         onPress={() => {
-          if (!isPremium && localExpenses.length >= FREE_EXPENSE_LIMIT) {
+          if (!isPremium && userTotalExpenseCount >= FREE_EXPENSE_LIMIT) {
             Alert.alert(
               'Free Plan Limit',
-              `Free plan allows ${FREE_EXPENSE_LIMIT} expenses per group. Upgrade to Premium for unlimited expenses.`,
+              `Free plan allows ${FREE_EXPENSE_LIMIT} expenses total. Upgrade to Premium for unlimited expenses.`,
               [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Upgrade', onPress: () => navigation.navigate('Payment') },

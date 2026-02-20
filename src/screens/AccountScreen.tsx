@@ -286,7 +286,7 @@ export default function AccountScreen() {
                 <Text style={[styles.premiumBadgeText, styles.premiumBadgeTextFree]}>Upgrade to Premium</Text>
               </View>
               <Text style={[styles.premiumDescription, styles.premiumDescriptionFree]}>
-                You're on the free plan (1 group, 2 expenses). Unlock unlimited for just $1/month.
+                You're on the free plan (1 group, 2 expenses total). Unlock unlimited for just $1/month.
               </Text>
               <View style={[styles.premiumButton, styles.premiumButtonFree]}>
                 <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 15 }}>See Plans →</Text>
