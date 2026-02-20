@@ -21,6 +21,7 @@ import { Friend, FriendRequest } from '../types';
 import { useTheme } from '../theme/ThemeContext';
 import { shadows } from '../theme/colors';
 import Avatar from '../components/Avatar';
+import NotificationModal from '../components/NotificationModal';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -31,6 +32,11 @@ export default function FriendsScreen() {
   const { colors, isDark } = useTheme();
   const [processingRequest, setProcessingRequest] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [successModal, setSuccessModal] = useState<{ visible: boolean; title: string; message: string }>({
+    visible: false,
+    title: '',
+    message: '',
+  });
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -62,7 +68,11 @@ export default function FriendsScreen() {
     setProcessingRequest(request.id);
     try {
       await acceptFriendRequest(request.id, request.fromUser);
-      Alert.alert('Friend Added! 🎉', `You and @${request.fromUsername} are now friends!`);
+      setSuccessModal({
+        visible: true,
+        title: 'Friend Added!',
+        message: `You and @${request.fromUsername} are now friends!`,
+      });
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to accept request');
     } finally {
@@ -202,6 +212,13 @@ export default function FriendsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.primary }]}>
+      <NotificationModal
+        visible={successModal.visible}
+        type="success"
+        title={successModal.title}
+        message={successModal.message}
+        onClose={() => setSuccessModal({ visible: false, title: '', message: '' })}
+      />
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.primary }]} edges={['top']}>
         {/* Header */}

@@ -74,6 +74,27 @@ const sendFriendRequest = async (req, res) => {
       [req.userId, to_user_id]
     );
 
+    // Emit real-time notification to the recipient
+    const io = req.app.get('socketio');
+    if (io) {
+      const senderResult = await pool.query(
+        'SELECT name, avatar_url FROM users WHERE id = $1',
+        [req.userId]
+      );
+      const sender = senderResult.rows[0];
+      io.to(`user-${to_user_id}`).emit('friend-request-received', {
+        request: {
+          id: result.rows[0].id,
+          from_user_id: req.userId,
+          to_user_id,
+          from_username: sender?.name,
+          from_avatar: sender?.avatar_url,
+          status: 'pending',
+          created_at: result.rows[0].created_at,
+        },
+      });
+    }
+
     res.status(201).json({ request: result.rows[0] });
   } catch (error) {
     console.error('Send friend request error:', error.message, error.stack);
@@ -172,6 +193,19 @@ const acceptFriendRequest = async (req, res) => {
     );
 
     await client.query('COMMIT');
+
+    // Notify the sender that their request was accepted
+    const io = req.app.get('socketio');
+    if (io) {
+      io.to(`user-${friendRequest.from_user_id}`).emit('friend-request-accepted', {
+        requestId: id,
+        newFriend: {
+          id: toUser.rows[0].id,
+          name: toUser.rows[0].name,
+          avatar_url: toUser.rows[0].avatar_url,
+        },
+      });
+    }
 
     res.json({ message: 'Friend request accepted' });
   } catch (error) {

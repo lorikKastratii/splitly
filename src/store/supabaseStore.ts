@@ -4,6 +4,39 @@ import { Group, Expense, Settlement, User, Friend, Split, FriendRequest } from '
 import { api } from '../lib/api';
 import { socketClient } from '../lib/socket';
 
+const mapExpenses = (expenses: any[]): Expense[] =>
+  expenses.map((e: any) => ({
+    id: e.id,
+    groupId: e.group_id,
+    description: e.description,
+    amount: parseFloat(e.amount),
+    currency: e.currency,
+    paidBy: e.paid_by,
+    splitType: e.split_type,
+    category: e.category,
+    date: e.date,
+    createdAt: e.created_at,
+    notes: e.notes,
+    splits: (e.splits || []).map((s: any) => ({
+      userId: s.user_id,
+      amount: parseFloat(s.amount),
+      percentage: s.percentage,
+    })),
+  }));
+
+const mapSettlements = (settlements: any[]): Settlement[] =>
+  settlements.map((s: any) => ({
+    id: s.id,
+    groupId: s.group_id,
+    from: s.from_user,
+    to: s.to_user,
+    amount: parseFloat(s.amount),
+    currency: s.currency,
+    date: s.date,
+    createdAt: s.created_at,
+    notes: s.notes,
+  }));
+
 const mapGroups = (groups: any[]): Group[] =>
   groups.map((g: any) => ({
     id: g.id,
@@ -119,7 +152,34 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
 
       // Load groups
       const groupsResponse = await api.getGroups();
-      set({ groups: mapGroups(groupsResponse.groups || []) });
+      const mappedGroups = mapGroups(groupsResponse.groups || []);
+      set({ groups: mappedGroups });
+
+      // Join socket rooms for all groups (for real-time updates)
+      mappedGroups.forEach(g => socketClient.joinGroup(g.id));
+
+      // Load expenses and settlements for all groups
+      const allExpenses: Expense[] = [];
+      const allSettlements: Settlement[] = [];
+      await Promise.all(
+        mappedGroups.map(async (group) => {
+          try {
+            const [expensesRes, settlementsRes] = await Promise.all([
+              api.getGroupExpenses(group.id),
+              api.getGroupSettlements(group.id),
+            ]);
+            if (expensesRes.expenses) {
+              allExpenses.push(...mapExpenses(expensesRes.expenses));
+            }
+            if (settlementsRes.settlements) {
+              allSettlements.push(...mapSettlements(settlementsRes.settlements));
+            }
+          } catch (e) {
+            console.warn(`Failed to load data for group ${group.id}:`, e);
+          }
+        })
+      );
+      set({ expenses: allExpenses, settlements: allSettlements });
 
       // Load friends
       const friendsResponse = await api.getFriends();
@@ -343,7 +403,79 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
   },
 
   subscribeToGroups: () => {
-    // Socket.io subscriptions can be added here
-    return () => {};
+    const handleExpenseAdded = (data: any) => {
+      const expense = mapExpenses([data.expense])[0];
+      if (!expense) return;
+      set(state => {
+        if (state.expenses.find(e => e.id === expense.id)) return state;
+        return { expenses: [...state.expenses, expense], lastUpdated: Date.now() };
+      });
+    };
+
+    const handleExpenseDeleted = (data: any) => {
+      set(state => ({
+        expenses: state.expenses.filter(e => e.id !== data.id),
+        lastUpdated: Date.now(),
+      }));
+    };
+
+    const handleSettlementAdded = (data: any) => {
+      const settlement = mapSettlements([data.settlement])[0];
+      if (!settlement) return;
+      set(state => {
+        if (state.settlements.find(s => s.id === settlement.id)) return state;
+        return { settlements: [...state.settlements, settlement], lastUpdated: Date.now() };
+      });
+    };
+
+    const handleSettlementDeleted = (data: any) => {
+      set(state => ({
+        settlements: state.settlements.filter(s => s.id !== data.id),
+        lastUpdated: Date.now(),
+      }));
+    };
+
+    const handleFriendRequestReceived = (data: any) => {
+      const r = data.request;
+      const newRequest: FriendRequest = {
+        id: r.id,
+        fromUser: r.from_user_id,
+        toUser: r.to_user_id,
+        fromUsername: r.from_username,
+        fromAvatar: r.from_avatar,
+        status: 'pending',
+        createdAt: r.created_at,
+      };
+      set(state => {
+        if (state.friendRequests.find(req => req.id === newRequest.id)) return state;
+        return { friendRequests: [...state.friendRequests, newRequest] };
+      });
+    };
+
+    const handleFriendRequestAccepted = (data: any) => {
+      set(state => ({
+        friendRequests: state.friendRequests.filter(r => r.id !== data.requestId),
+      }));
+      // Reload friends list to get the new friend
+      api.getFriends().then(res => {
+        set({ friends: mapFriends(res.friends || []) });
+      }).catch(console.error);
+    };
+
+    socketClient.on('expense-added', handleExpenseAdded);
+    socketClient.on('expense-deleted', handleExpenseDeleted);
+    socketClient.on('settlement-added', handleSettlementAdded);
+    socketClient.on('settlement-deleted', handleSettlementDeleted);
+    socketClient.on('friend-request-received', handleFriendRequestReceived);
+    socketClient.on('friend-request-accepted', handleFriendRequestAccepted);
+
+    return () => {
+      socketClient.off('expense-added', handleExpenseAdded);
+      socketClient.off('expense-deleted', handleExpenseDeleted);
+      socketClient.off('settlement-added', handleSettlementAdded);
+      socketClient.off('settlement-deleted', handleSettlementDeleted);
+      socketClient.off('friend-request-received', handleFriendRequestReceived);
+      socketClient.off('friend-request-accepted', handleFriendRequestAccepted);
+    };
   },
 }));

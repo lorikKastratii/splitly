@@ -74,6 +74,9 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.userId}`);
 
+  // Join user-specific room for direct notifications
+  socket.join(`user-${socket.userId}`);
+
   socket.on('join-group', async (groupId) => {
     try {
       const result = await pool.query(

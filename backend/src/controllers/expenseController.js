@@ -52,6 +52,12 @@ const createExpense = async (req, res) => {
 
     expense.splits = splitsResult.rows;
 
+    // Emit real-time event to all group members
+    const emitToGroup = req.app.get('emitToGroup');
+    if (emitToGroup) {
+      emitToGroup(group_id, 'expense-added', { expense });
+    }
+
     res.status(201).json({ expense });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -123,6 +129,12 @@ const deleteExpense = async (req, res) => {
     }
 
     await pool.query('DELETE FROM expenses WHERE id = $1', [id]);
+
+    // Emit real-time event to all group members
+    const emitToGroup = req.app.get('emitToGroup');
+    if (emitToGroup) {
+      emitToGroup(expense.rows[0].group_id, 'expense-deleted', { id });
+    }
 
     res.json({ message: 'Expense deleted successfully' });
   } catch (error) {

@@ -26,7 +26,7 @@ type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const { groups, isLoading, loadData, lastUpdated } = useStore();
+  const { groups, isLoading, loadData, lastUpdated, subscribeToGroups } = useStore();
   const { profile } = useAuth();
   const currentUserId = profile?.id || '';
   const { colors, isDark } = useTheme();
@@ -38,6 +38,8 @@ export default function HomeScreen() {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = subscribeToGroups();
+    return () => unsubscribe();
   }, []);
 
   // Pull to refresh handler

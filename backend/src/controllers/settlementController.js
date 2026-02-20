@@ -33,6 +33,12 @@ const createSettlement = async (req, res) => {
 
     await client.query('COMMIT');
 
+    // Emit real-time event to all group members
+    const emitToGroup = req.app.get('emitToGroup');
+    if (emitToGroup) {
+      emitToGroup(group_id, 'settlement-added', { settlement: result.rows[0] });
+    }
+
     res.status(201).json({ settlement: result.rows[0] });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -95,6 +101,12 @@ const deleteSettlement = async (req, res) => {
     }
 
     await pool.query('DELETE FROM settlements WHERE id = $1', [id]);
+
+    // Emit real-time event to all group members
+    const emitToGroup = req.app.get('emitToGroup');
+    if (emitToGroup) {
+      emitToGroup(settlement.rows[0].group_id, 'settlement-deleted', { id });
+    }
 
     res.json({ message: 'Settlement deleted successfully' });
   } catch (error) {
