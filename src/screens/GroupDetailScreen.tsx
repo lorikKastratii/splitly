@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useLayoutEffect, useCallback } from 'react';
+import React, { useMemo, useState, useLayoutEffect, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { shadows } from '../theme/colors';
 import { formatCurrency } from '../lib/utils';
 import Avatar from '../components/Avatar';
+import { socketClient } from '../lib/socket';
 
 type GroupDetailScreenNavigationProp = StackNavigationProp<
   RootStackParamList,
@@ -118,6 +119,28 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
       fetchGroupData();
     }, [fetchGroupData])
   );
+
+  // Real-time: refresh local data when group events arrive from socket
+  useEffect(() => {
+    const handleGroupEvent = (data: any) => {
+      // Only refresh if this event belongs to our group
+      const eventGroupId = data?.expense?.group_id || data?.settlement?.group_id || data?.groupId;
+      if (eventGroupId && eventGroupId !== group.id) return;
+      fetchGroupData();
+    };
+
+    socketClient.on('expense-added', handleGroupEvent);
+    socketClient.on('expense-deleted', handleGroupEvent);
+    socketClient.on('settlement-added', handleGroupEvent);
+    socketClient.on('settlement-deleted', handleGroupEvent);
+
+    return () => {
+      socketClient.off('expense-added', handleGroupEvent);
+      socketClient.off('expense-deleted', handleGroupEvent);
+      socketClient.off('settlement-added', handleGroupEvent);
+      socketClient.off('settlement-deleted', handleGroupEvent);
+    };
+  }, [group.id, fetchGroupData]);
 
   // Get updated group from store
   const currentGroup = groups.find((g) => g.id === group.id) || group;
