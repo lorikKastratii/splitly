@@ -9,6 +9,7 @@ import { ThemeProvider } from './src/theme/ThemeContext';
 import { AuthProvider, useAuth } from './src/store/authContext';
 import { useSupabaseStore } from './src/store/supabaseStore';
 import AuthGate from './src/components/AuthGate';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
@@ -66,12 +67,14 @@ function AppContent() {
 
 export default function App() {
   return (
-    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY} merchantIdentifier="merchant.com.splitly.app">
-      <ThemeProvider>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </ThemeProvider>
-    </StripeProvider>
+    <ErrorBoundary>
+      <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY} merchantIdentifier="merchant.com.splitly.app">
+        <ThemeProvider>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </ThemeProvider>
+      </StripeProvider>
+    </ErrorBoundary>
   );
 }

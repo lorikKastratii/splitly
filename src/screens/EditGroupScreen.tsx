@@ -210,9 +210,13 @@ export default function EditGroupScreen({ navigation, route }: Props) {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            deleteGroup(groupId);
-            navigation.navigate('MainTabs');
+          onPress: async () => {
+            try {
+              await deleteGroup(groupId);
+              navigation.navigate('MainTabs');
+            } catch (error: any) {
+              Alert.alert('Error', error?.message || 'Failed to delete group. Please try again.');
+            }
           },
         },
       ]
