@@ -58,6 +58,7 @@ export default function AddGroupScreen({ navigation }: Props) {
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [createdInviteCode, setCreatedInviteCode] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Search to add members by username/email
   const [memberSearch, setMemberSearch] = useState('');
@@ -160,6 +161,9 @@ export default function AddGroupScreen({ navigation }: Props) {
       return;
     }
 
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     try {
       console.log('🚀 Starting group creation...');
       console.log('📝 Group data:', { name: name.trim(), description: description.trim(), currency, selectedFriends: selectedFriendIds.length });
@@ -212,6 +216,8 @@ export default function AddGroupScreen({ navigation }: Props) {
       console.error('❌ Error message:', error?.message);
       console.error('❌ Error details:', JSON.stringify(error, null, 2));
       Alert.alert('Error', `Failed to create group: ${error?.message || 'Unknown error'}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -522,13 +528,17 @@ export default function AddGroupScreen({ navigation }: Props) {
           style={[
             styles.saveButton,
             { backgroundColor: colors.primary },
-            (!name.trim() || uploadingImage) && [styles.saveButtonDisabled, { opacity: 0.5 }],
+            (!name.trim() || uploadingImage || isSubmitting) && [styles.saveButtonDisabled, { opacity: 0.5 }],
           ]}
           onPress={handleSave}
-          disabled={!name.trim() || uploadingImage}
+          disabled={!name.trim() || uploadingImage || isSubmitting}
           activeOpacity={0.8}
         >
-          <Text style={[styles.saveButtonText, { color: colors.textInverse }]}>Create Group</Text>
+          {isSubmitting ? (
+            <ActivityIndicator color={colors.textInverse} />
+          ) : (
+            <Text style={[styles.saveButtonText, { color: colors.textInverse }]}>Create Group</Text>
+          )}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

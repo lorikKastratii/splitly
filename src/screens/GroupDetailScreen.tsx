@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useLayoutEffect, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useLayoutEffect, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -54,8 +54,10 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
   const [localExpenses, setLocalExpenses] = useState<Expense[]>([]);
   const [localSettlements, setLocalSettlements] = useState<Settlement[]>([]);
   const { colors, isDark } = useTheme();
+  const isGroupDeleted = useRef(false);
 
   const fetchGroupData = useCallback(async () => {
+    if (isGroupDeleted.current) return;
     try {
       const [groupRes, expensesRes, settlementsRes] = await Promise.all([
         api.getGroup(group.id),
@@ -134,7 +136,8 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
 
     const handleGroupDeleted = (data: any) => {
       if (data?.groupId !== group.id) return;
-      navigation.goBack();
+      isGroupDeleted.current = true;
+      navigation.navigate('MainTabs');
     };
 
     socketClient.on('expense-added', handleDataEvent);
