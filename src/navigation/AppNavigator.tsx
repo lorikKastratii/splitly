@@ -154,7 +154,6 @@ export default function AppNavigator() {
             fontWeight: '500',
             fontSize: 18,
           },
-          headerBackTitleVisible: false,
           cardStyle: {
             backgroundColor: colors.background,
           },

@@ -25,7 +25,7 @@ interface Props {
 // Default user - the person joining
 const ME: User = {
   id: 'me',
-  name: 'Me',
+  username: 'Me',
   email: undefined,
 };
 

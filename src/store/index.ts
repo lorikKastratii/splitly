@@ -178,7 +178,7 @@ export const useStore = create<AppState>((set, get) => ({
       useNotificationStore.getState().addNotification({
         type: 'expense_added',
         title: 'New Expense Added',
-        message: `${paidByMember?.name || 'Someone'} added "${expense.description}" (${formatCurrency(expense.amount, expense.currency)}) in ${group.name}`,
+        message: `${paidByMember?.username || 'Someone'} added "${expense.description}" (${formatCurrency(expense.amount, expense.currency)}) in ${group.name}`,
         groupId: group.id,
         groupName: group.name,
       });
@@ -217,7 +217,7 @@ export const useStore = create<AppState>((set, get) => ({
       useNotificationStore.getState().addNotification({
         type: 'settlement',
         title: 'Settlement Made',
-        message: `${fromMember?.name || 'Someone'} paid ${toMember?.name || 'someone'} ${formatCurrency(settlement.amount, settlement.currency)} in ${group.name}`,
+        message: `${fromMember?.username || 'Someone'} paid ${toMember?.username || 'someone'} ${formatCurrency(settlement.amount, settlement.currency)} in ${group.name}`,
         groupId: group.id,
         groupName: group.name,
       });
