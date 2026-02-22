@@ -44,48 +44,48 @@ export const lightColors = {
 };
 
 export const darkColors = {
-  // Primary palette - Deep Teal (brighter for dark mode)
-  primary: '#14B8A6',
-  primaryLight: '#2DD4BF',
-  primaryDark: '#0F766E',
-  primaryGradient: ['#14B8A6', '#06B6D4'],
-  
-  // Secondary palette - Deep Coral
-  secondary: '#F97316',
-  secondaryLight: '#FB923C',
+  // Primary palette - Vibrant Teal (more pop on dark)
+  primary: '#2DD4BF',
+  primaryLight: '#5EEAD4',
+  primaryDark: '#14B8A6',
+  primaryGradient: ['#2DD4BF', '#22D3EE'],
+
+  // Secondary palette - Warm Orange
+  secondary: '#FB923C',
+  secondaryLight: '#FDBA74',
   secondaryDark: '#EA580C',
-  
-  // Status colors
-  success: '#10B981',
-  successLight: '#064E3B',
-  danger: '#F43F5E',
-  dangerLight: '#4C0519',
-  warning: '#F59E0B',
-  warningLight: '#451A03',
-  info: '#0EA5E9',
-  
-  // Backgrounds
-  background: '#0F172A',
-  backgroundSecondary: '#1E293B',
-  card: '#1E293B',
-  cardElevated: '#334155',
-  
-  // Borders
-  border: '#334155',
-  borderLight: '#475569',
-  
-  // Text
-  text: '#F1F5F9',
-  textSecondary: '#CBD5E1',
-  textMuted: '#94A3B8',
-  textLight: '#64748B',
-  textInverse: '#0F172A',
-  
+
+  // Status colors - brighter, clearer intent
+  success: '#34D399',
+  successLight: '#0B2E20',
+  danger: '#FB7185',
+  dangerLight: '#2D0A14',
+  warning: '#FCD34D',
+  warningLight: '#2D1A00',
+  info: '#38BDF8',
+
+  // Backgrounds - clear elevation hierarchy
+  background: '#0D1117',
+  backgroundSecondary: '#161D2B',
+  card: '#1C2638',
+  cardElevated: '#263347',
+
+  // Borders - visible but subtle
+  border: '#2C3E54',
+  borderLight: '#3A5068',
+
+  // Text - high readability
+  text: '#EFF6FF',
+  textSecondary: '#BACAD8',
+  textMuted: '#7D95AB',
+  textLight: '#526478',
+  textInverse: '#0D1117',
+
   // Shadows (for iOS)
   shadow: '#000000',
-  
-  // Avatar colors - Rich & deep
-  avatarColors: ['#14B8A6', '#06B6D4', '#F97316', '#F43F5E', '#A78BFA', '#F472B6', '#10B981', '#FBBF24'],
+
+  // Avatar colors - vivid on dark
+  avatarColors: ['#2DD4BF', '#22D3EE', '#FB923C', '#FB7185', '#A78BFA', '#F472B6', '#34D399', '#FCD34D'],
 };
 
 export type ThemeColors = typeof lightColors;
