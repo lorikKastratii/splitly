@@ -1,5 +1,25 @@
 function getConfig() {
-  const rawUrl = process.env.PAYMENT_API_URL;
+  const sanitize = (value) => {
+    if (typeof value !== 'string') return '';
+    const trimmed = value.trim().replace(/^['\"]|['\"]$/g, '');
+    if (!trimmed) return '';
+    const lower = trimmed.toLowerCase();
+    if (lower === 'undefined' || lower === 'null') return '';
+    return trimmed;
+  };
+
+  const rawUrl = sanitize(
+    process.env.PAYMENT_API_URL
+    || process.env.PAYMENTSTRIPE_API_URL
+    || process.env.PAYMENT_URL
+  );
+
+  const rawKey = sanitize(
+    process.env.PAYMENT_API_KEY
+    || process.env.PAYMENTSTRIPE_API_KEY
+    || process.env.PAYMENT_APIKEY
+    || process.env.PAYMENT_KEY
+  );
 
   const normalizedUrl = !rawUrl
     ? rawUrl
@@ -9,7 +29,7 @@ function getConfig() {
 
   return {
     url: normalizedUrl,
-    key: process.env.PAYMENT_API_KEY,
+    key: rawKey,
   };
 }
 
@@ -67,11 +87,22 @@ function extractPlans(payload) {
   return rawPlans.map(normalizePlan).filter(Boolean);
 }
 
+function logMissingConfigContext(url, key) {
+  const paymentEnvKeys = Object.keys(process.env)
+    .filter((name) => name.startsWith('PAYMENT'));
+
+  console.error('Payment API not configured: missing PAYMENT_API_URL or PAYMENT_API_KEY', {
+    hasUrl: Boolean(url),
+    hasKey: Boolean(key),
+    paymentEnvKeys,
+  });
+}
+
 exports.getPaymentConfig = async (_req, res) => {
   const { url, key } = getConfig();
 
   if (!url || !key) {
-    console.error('Payment API not configured: missing PAYMENT_API_URL or PAYMENT_API_KEY');
+    logMissingConfigContext(url, key);
     return res.json({ paymentRequired: true });
   }
 
@@ -97,7 +128,7 @@ exports.getPlans = async (_req, res) => {
   const { url, key } = getConfig();
 
   if (!url || !key) {
-    console.error('Payment API not configured: missing PAYMENT_API_URL or PAYMENT_API_KEY');
+    logMissingConfigContext(url, key);
     return res.json({ plans: [] });
   }
 
@@ -130,7 +161,7 @@ exports.createIntent = async (req, res) => {
   const { url, key } = getConfig();
 
   if (!url || !key) {
-    console.error('Payment API not configured: missing PAYMENT_API_URL or PAYMENT_API_KEY');
+    logMissingConfigContext(url, key);
     return res.status(503).json({ error: 'Payment service unavailable.' });
   }
 
