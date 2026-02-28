@@ -3,6 +3,16 @@ const { pool } = require('../config/database');
 const { generateToken } = require('../utils/jwt');
 const { syncUserWithPaymentApi } = require('./paymentController');
 
+const USERNAME_REGEX = /^[a-zA-Z0-9](?:[a-zA-Z0-9._]{1,18}[a-zA-Z0-9])$/;
+
+function isValidUsername(value) {
+  const username = value?.trim();
+  if (!username) return false;
+  if (!USERNAME_REGEX.test(username)) return false;
+  if (username.includes('..')) return false;
+  return true;
+}
+
 const register = async (req, res) => {
   const client = await pool.connect();
 
@@ -11,6 +21,12 @@ const register = async (req, res) => {
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Email, password, and name are required' });
+    }
+
+    if (!isValidUsername(name)) {
+      return res.status(400).json({
+        error: 'Invalid username. Use 3-20 characters with letters, numbers, underscores, or dots. Username must start/end with a letter or number and cannot contain consecutive dots.',
+      });
     }
 
     await client.query('BEGIN');

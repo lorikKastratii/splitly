@@ -35,9 +35,9 @@ export default function SignUpScreen({ onSwitchToSignIn }: Props) {
     }
 
     // Validate username format
-    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
-    if (!usernameRegex.test(username.trim())) {
-      Alert.alert('Invalid Username', 'Username must be 3-20 characters and can only contain letters, numbers, and underscores');
+    const usernameRegex = /^[a-zA-Z0-9](?:[a-zA-Z0-9._]{1,18}[a-zA-Z0-9])$/;
+    if (!usernameRegex.test(username.trim()) || username.trim().includes('..')) {
+      Alert.alert('Invalid Username', 'Username must be 3-20 characters, can use letters, numbers, underscores, and dots, must start/end with a letter or number, and cannot contain consecutive dots');
       return;
     }
 
@@ -92,13 +92,13 @@ export default function SignUpScreen({ onSwitchToSignIn }: Props) {
               style={[styles.input, { color: colors.text, backgroundColor: colors.background }]}
               value={username}
               onChangeText={setUsername}
-              placeholder="your_username"
+              placeholder="your.name"
               placeholderTextColor={colors.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
             />
             <Text style={[styles.hint, { color: colors.textMuted }]}>
-              3-20 characters, letters, numbers, and underscores only
+              3-20 characters. Letters, numbers, underscores, and dots.
             </Text>
 
             <Text style={[styles.label, { color: colors.textSecondary, marginTop: 16 }]}>Email</Text>
