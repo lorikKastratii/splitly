@@ -10,7 +10,8 @@ function getHeaders() {
 
 exports.getPaymentConfig = async (_req, res) => {
   if (!PAYMENT_API_URL || !PAYMENT_API_KEY) {
-    return res.json({ paymentRequired: false });
+    console.error('Payment API not configured: missing PAYMENT_API_URL or PAYMENT_API_KEY');
+    return res.json({ paymentRequired: true });
   }
 
   try {
@@ -20,14 +21,14 @@ exports.getPaymentConfig = async (_req, res) => {
 
     if (!response.ok) {
       console.error('PaymentStripe config error:', response.status);
-      return res.json({ paymentRequired: false });
+      return res.json({ paymentRequired: true });
     }
 
     const paymentRequired = await response.json();
     return res.json({ paymentRequired });
   } catch (error) {
     console.error('Payment config error:', error);
-    return res.json({ paymentRequired: false });
+    return res.json({ paymentRequired: true });
   }
 };
 
