@@ -1,6 +1,14 @@
 function getConfig() {
+  const rawUrl = process.env.PAYMENT_API_URL;
+
+  const normalizedUrl = !rawUrl
+    ? rawUrl
+    : /^https?:\/\//i.test(rawUrl)
+      ? rawUrl
+      : `https://${rawUrl}`;
+
   return {
-    url: process.env.PAYMENT_API_URL,
+    url: normalizedUrl,
     key: process.env.PAYMENT_API_KEY,
   };
 }
@@ -10,6 +18,53 @@ function getHeaders(apiKey) {
     'Content-Type': 'application/json',
     'X-Api-Key': apiKey,
   };
+}
+
+function normalizePaymentRequired(payload) {
+  if (typeof payload === 'boolean') return payload;
+  if (typeof payload?.data === 'boolean') return payload.data;
+  if (typeof payload?.paymentRequired === 'boolean') return payload.paymentRequired;
+  return true;
+}
+
+function normalizePlan(plan) {
+  if (!plan || typeof plan !== 'object') return null;
+
+  const id = plan.id ?? plan.Id;
+  const name = plan.name ?? plan.Name;
+  const description = plan.description ?? plan.Description ?? '';
+  const priceInCents = Number(plan.priceInCents ?? plan.PriceInCents);
+  const currency = (plan.currency ?? plan.Currency ?? 'eur').toString().toLowerCase();
+  const billingPeriod = (plan.billingPeriod ?? plan.BillingPeriod ?? 'monthly').toString().toLowerCase();
+  const sortOrder = Number(plan.sortOrder ?? plan.SortOrder ?? 0);
+
+  if (!id || !name || Number.isNaN(priceInCents)) {
+    return null;
+  }
+
+  return {
+    id: String(id),
+    name: String(name),
+    description: String(description),
+    priceInCents,
+    currency,
+    billingPeriod,
+    sortOrder: Number.isNaN(sortOrder) ? 0 : sortOrder,
+  };
+}
+
+function extractPlans(payload) {
+  const candidates = [
+    payload,
+    payload?.data,
+    payload?.plans,
+    payload?.data?.plans,
+    payload?.result,
+    payload?.result?.plans,
+  ];
+
+  const rawPlans = candidates.find(Array.isArray) || [];
+  return rawPlans.map(normalizePlan).filter(Boolean);
 }
 
 exports.getPaymentConfig = async (_req, res) => {
@@ -30,8 +85,8 @@ exports.getPaymentConfig = async (_req, res) => {
       return res.json({ paymentRequired: true });
     }
 
-    const paymentRequired = await response.json();
-    return res.json({ paymentRequired });
+    const data = await response.json();
+    return res.json({ paymentRequired: normalizePaymentRequired(data) });
   } catch (error) {
     console.error('Payment config error:', error);
     return res.json({ paymentRequired: true });
@@ -52,13 +107,13 @@ exports.getPlans = async (_req, res) => {
     });
 
     if (!response.ok) {
-      console.error('PaymentStripe plans error:', response.status);
+      const errorBody = await response.text().catch(() => '');
+      console.error('PaymentStripe plans error:', response.status, errorBody);
       return res.json({ plans: [] });
     }
 
     const data = await response.json();
-    const plans = data.data || data;
-    return res.json({ plans: Array.isArray(plans) ? plans : [] });
+    return res.json({ plans: extractPlans(data) });
   } catch (error) {
     console.error('Payment plans error:', error);
     return res.json({ plans: [] });
