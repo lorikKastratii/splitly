@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { useAuth, SubscriptionTier } from '../store/authContext';
+import { useAuth, SubscriptionTier, PaymentPlan } from '../store/authContext';
 import { useTheme } from '../theme/ThemeContext';
 import { shadows } from '../theme/colors';
 import { api } from '../lib/api';
@@ -24,55 +24,56 @@ interface Props {
   navigation: NavigationProp;
 }
 
-type Plan = {
-  id: 'monthly' | 'yearly' | 'lifetime';
-  label: string;
-  price: string;
-  period: string;
-  badge?: string;
-  features: string[];
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  eur: '\u20AC',
+  usd: '$',
+  gbp: '\u00A3',
 };
 
-const PLANS: Plan[] = [
-  {
-    id: 'monthly',
-    label: 'Monthly',
-    price: '$1',
-    period: '/month',
-    features: ['Unlimited groups', 'Unlimited expenses', 'All currencies'],
-  },
-  {
-    id: 'yearly',
-    label: 'Yearly',
-    price: '$10',
-    period: '/year',
-    badge: 'Best Value',
-    features: ['Unlimited groups', 'Unlimited expenses', 'All currencies', 'Priority support'],
-  },
-  {
-    id: 'lifetime',
-    label: 'Lifetime',
-    price: '$15',
-    period: 'one-time',
-    features: ['Unlimited groups', 'Unlimited expenses', 'All currencies', 'Priority support', 'All future updates'],
-  },
-];
+function formatPlanPrice(priceInCents: number, currency: string): string {
+  const symbol = CURRENCY_SYMBOLS[currency.toLowerCase()] || currency.toUpperCase() + ' ';
+  const amount = (priceInCents / 100).toFixed(priceInCents % 100 === 0 ? 0 : 2);
+  return `${symbol}${amount}`;
+}
+
+function formatBillingPeriod(period: string): string {
+  switch (period.toLowerCase()) {
+    case 'monthly': return '/month';
+    case 'yearly': return '/year';
+    case 'lifetime': return 'one-time';
+    default: return `/${period}`;
+  }
+}
+
+function billingPeriodToTier(period: string): SubscriptionTier {
+  switch (period.toLowerCase()) {
+    case 'monthly': return 'monthly';
+    case 'yearly': return 'yearly';
+    case 'lifetime': return 'lifetime';
+    default: return 'monthly';
+  }
+}
 
 export default function PaymentScreen({ navigation }: Props) {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
-  const { setPremium } = useAuth();
+  const { setPremium, plans } = useAuth();
   const { colors } = useTheme();
 
-  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | 'lifetime'>('yearly');
+  const sortedPlans = [...plans].sort((a, b) => a.sortOrder - b.sortOrder);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(
+    sortedPlans.length > 0 ? sortedPlans[Math.min(1, sortedPlans.length - 1)].id : null
+  );
   const [loading, setLoading] = useState(false);
 
+  const selectedPlan = sortedPlans.find((p) => p.id === selectedPlanId);
+
   const handlePurchase = async () => {
+    if (!selectedPlan) return;
+
     setLoading(true);
     try {
-      // 1. Create PaymentIntent via our backend
-      const { clientSecret } = await api.createPaymentIntent(selectedPlan);
+      const { clientSecret } = await api.createPaymentIntent(selectedPlan.id);
 
-      // 2. Initialize the payment sheet
       const { error: initError } = await initPaymentSheet({
         paymentIntentClientSecret: clientSecret,
         merchantDisplayName: 'Splitly',
@@ -84,7 +85,6 @@ export default function PaymentScreen({ navigation }: Props) {
         return;
       }
 
-      // 3. Present the payment sheet
       const { error: paymentError } = await presentPaymentSheet();
 
       if (paymentError) {
@@ -94,17 +94,17 @@ export default function PaymentScreen({ navigation }: Props) {
         return;
       }
 
-      // 4. Payment succeeded — update subscription state
+      const tier = billingPeriodToTier(selectedPlan.billingPeriod);
       let expiresAt: Date | null = null;
-      if (selectedPlan === 'monthly') {
+      if (tier === 'monthly') {
         expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 30);
-      } else if (selectedPlan === 'yearly') {
+      } else if (tier === 'yearly') {
         expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 365);
       }
 
-      await setPremium(selectedPlan as SubscriptionTier, expiresAt);
+      await setPremium(tier, expiresAt);
 
       Alert.alert(
         'Welcome to Premium!',
@@ -223,62 +223,72 @@ export default function PaymentScreen({ navigation }: Props) {
 
           <Text style={styles.sectionTitle}>Choose a plan</Text>
 
-          {PLANS.map((plan) => {
-            const isSelected = selectedPlan === plan.id;
-            return (
-              <TouchableOpacity
-                key={plan.id}
-                style={[styles.planCard, isSelected ? styles.planCardSelected : styles.planCardUnselected]}
-                onPress={() => setSelectedPlan(plan.id)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.planHeader}>
-                  <View style={styles.planLeft}>
-                    <Text style={styles.planLabel}>{plan.label}</Text>
-                    <View style={styles.planPriceRow}>
-                      <Text style={styles.planPrice}>{plan.price}</Text>
-                      <Text style={styles.planPeriod}>{plan.period}</Text>
+          {sortedPlans.length === 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={{ color: colors.textSecondary, marginTop: 12 }}>Loading plans...</Text>
+            </View>
+          ) : (
+            sortedPlans.map((plan, index) => {
+              const isSelected = selectedPlanId === plan.id;
+              const isMiddle = sortedPlans.length >= 2 && index === 1;
+              return (
+                <TouchableOpacity
+                  key={plan.id}
+                  style={[styles.planCard, isSelected ? styles.planCardSelected : styles.planCardUnselected]}
+                  onPress={() => setSelectedPlanId(plan.id)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.planHeader}>
+                    <View style={styles.planLeft}>
+                      <Text style={styles.planLabel}>{plan.name}</Text>
+                      <View style={styles.planPriceRow}>
+                        <Text style={styles.planPrice}>{formatPlanPrice(plan.priceInCents, plan.currency)}</Text>
+                        <Text style={styles.planPeriod}>{formatBillingPeriod(plan.billingPeriod)}</Text>
+                      </View>
+                    </View>
+                    {isMiddle && (
+                      <View style={styles.planBadge}>
+                        <Text style={styles.planBadgeText}>Best Value</Text>
+                      </View>
+                    )}
+                    <View style={[styles.planRadio, isSelected && styles.planRadioSelected]}>
+                      {isSelected && <View style={styles.planRadioDot} />}
                     </View>
                   </View>
-                  {plan.badge && (
-                    <View style={styles.planBadge}>
-                      <Text style={styles.planBadgeText}>{plan.badge}</Text>
-                    </View>
-                  )}
-                  <View style={[styles.planRadio, isSelected && styles.planRadioSelected]}>
-                    {isSelected && <View style={styles.planRadioDot} />}
-                  </View>
-                </View>
 
-                <View style={styles.featureList}>
-                  {plan.features.map((f) => (
-                    <View key={f} style={styles.featureRow}>
-                      <Text style={styles.featureCheck}>✓</Text>
-                      <Text style={styles.featureText}>{f}</Text>
+                  {plan.description ? (
+                    <View style={styles.featureList}>
+                      {plan.description.split('\n').filter(Boolean).map((line) => (
+                        <View key={line} style={styles.featureRow}>
+                          <Text style={styles.featureCheck}>✓</Text>
+                          <Text style={styles.featureText}>{line}</Text>
+                        </View>
+                      ))}
                     </View>
-                  ))}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })
+          )}
 
           <TouchableOpacity
-            style={[styles.ctaButton, loading && styles.ctaButtonDisabled]}
+            style={[styles.ctaButton, (loading || !selectedPlan) && styles.ctaButtonDisabled]}
             onPress={handlePurchase}
-            disabled={loading}
+            disabled={loading || !selectedPlan}
             activeOpacity={0.8}
           >
             {loading ? (
               <ActivityIndicator color={colors.textInverse} />
             ) : (
               <Text style={styles.ctaButtonText}>
-                Continue with {PLANS.find((p) => p.id === selectedPlan)?.label}
+                Continue with {selectedPlan?.name || 'Plan'}
               </Text>
             )}
           </TouchableOpacity>
 
           <Text style={styles.ctaSubtext}>
-            Secure payment via Stripe. No auto-renewal. Cancel anytime.
+            Secure payment via Stripe. Cancel anytime.
           </Text>
         </ScrollView>
       </SafeAreaView>

@@ -30,13 +30,13 @@ const FREE_GROUP_LIMIT = 1;
 export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { groups, isLoading, loadData, lastUpdated, subscribeToGroups } = useStore();
-  const { profile, isPremium } = useAuth();
+  const { profile, isPremium, paymentRequired } = useAuth();
   const currentUserId = profile?.id || '';
   const { colors, isDark } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
 
   const handleCreateGroup = () => {
-    if (!isPremium && groups.length >= FREE_GROUP_LIMIT) {
+    if (paymentRequired && !isPremium && groups.length >= FREE_GROUP_LIMIT) {
       Alert.alert(
         'Free Plan Limit',
         `You've reached the free plan limit of ${FREE_GROUP_LIMIT} group. Upgrade to Premium for unlimited groups.`,

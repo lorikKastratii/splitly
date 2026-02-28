@@ -17,29 +17,29 @@ interface NotificationModalProps {
   onClose: () => void;
 }
 
-const typeConfig = {
+const getTypeConfig = (colors: ReturnType<typeof useTheme>['colors']) => ({
   success: {
-    bg: '#DCFCE7',
-    border: '#16A34A',
+    bg: colors.successLight,
+    border: colors.success,
     icon: '✓',
-    iconColor: '#16A34A',
-    titleColor: '#15803D',
+    iconColor: colors.success,
+    titleColor: colors.text,
   },
   error: {
-    bg: '#FEE2E2',
-    border: '#DC2626',
+    bg: colors.dangerLight,
+    border: colors.danger,
     icon: '✕',
-    iconColor: '#DC2626',
-    titleColor: '#B91C1C',
+    iconColor: colors.danger,
+    titleColor: colors.text,
   },
   info: {
-    bg: '#DBEAFE',
-    border: '#2563EB',
+    bg: colors.infoLight,
+    border: colors.info,
     icon: 'ℹ',
-    iconColor: '#2563EB',
-    titleColor: '#1D4ED8',
+    iconColor: colors.info,
+    titleColor: colors.text,
   },
-};
+});
 
 export default function NotificationModal({
   visible,
@@ -50,7 +50,7 @@ export default function NotificationModal({
   onClose,
 }: NotificationModalProps) {
   const { colors } = useTheme();
-  const cfg = typeConfig[type];
+  const cfg = getTypeConfig(colors)[type];
 
   return (
     <Modal

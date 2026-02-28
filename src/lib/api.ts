@@ -288,10 +288,26 @@ class ApiClient {
     });
   }
 
-  async createPaymentIntent(plan: 'monthly' | 'yearly' | 'lifetime'): Promise<{ clientSecret: string; paymentIntentId: string }> {
+  async getPaymentConfig(): Promise<{ paymentRequired: boolean }> {
+    return await this.request('/payments/config', { requiresAuth: false });
+  }
+
+  async getPlans(): Promise<{ plans: Array<{
+    id: string;
+    name: string;
+    description: string;
+    priceInCents: number;
+    currency: string;
+    billingPeriod: string;
+    sortOrder: number;
+  }> }> {
+    return await this.request('/payments/plans', { requiresAuth: false });
+  }
+
+  async createPaymentIntent(planId: string): Promise<{ clientSecret: string; paymentIntentId: string }> {
     return await this.request('/payments/create-intent', {
       method: 'POST',
-      body: { plan },
+      body: { planId },
     });
   }
 

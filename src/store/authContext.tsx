@@ -5,19 +5,32 @@ import { socketClient } from '../lib/socket';
 
 export type SubscriptionTier = 'free' | 'monthly' | 'yearly' | 'lifetime';
 
+export interface PaymentPlan {
+  id: string;
+  name: string;
+  description: string;
+  priceInCents: number;
+  currency: string;
+  billingPeriod: string;
+  sortOrder: number;
+}
+
 interface AuthContextType {
   user: User | null;
-  session: any; // For compatibility with old screens
-  profile: UserProfile | null; // For compatibility with old screens
+  session: any;
+  profile: UserProfile | null;
   loading: boolean;
   subscriptionTier: SubscriptionTier;
   subscriptionExpiresAt: Date | null;
   isPremium: boolean;
+  paymentRequired: boolean;
+  plans: PaymentPlan[];
   signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: Error | null }>;
   setPremium: (tier: SubscriptionTier, expiresAt: Date | null) => Promise<void>;
+  refreshPaymentConfig: () => Promise<void>;
 }
 
 interface UserProfile {
@@ -45,17 +58,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
   const [subscriptionExpiresAt, setSubscriptionExpiresAt] = useState<Date | null>(null);
+  const [paymentRequired, setPaymentRequired] = useState(true);
+  const [plans, setPlans] = useState<PaymentPlan[]>([]);
 
   const isPremium = React.useMemo(() => {
+    if (!paymentRequired) return true;
     if (subscriptionTier === 'free') return false;
     if (subscriptionTier === 'lifetime') return true;
     if (!subscriptionExpiresAt) return false;
     return subscriptionExpiresAt > new Date();
-  }, [subscriptionTier, subscriptionExpiresAt]);
+  }, [subscriptionTier, subscriptionExpiresAt, paymentRequired]);
+
+  const refreshPaymentConfig = async () => {
+    try {
+      const [configRes, plansRes] = await Promise.all([
+        api.getPaymentConfig(),
+        api.getPlans(),
+      ]);
+      setPaymentRequired(configRes.paymentRequired);
+      setPlans(plansRes.plans);
+    } catch {
+      // Default to payment required on error so limits stay safe
+    }
+  };
 
   useEffect(() => {
     checkAuthStatus();
     loadSubscription();
+    refreshPaymentConfig();
   }, []);
 
   const loadSubscription = async () => {
@@ -198,17 +228,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        session: user ? { user } : null, // Compatibility
+        session: user ? { user } : null,
         profile,
         loading,
         subscriptionTier,
         subscriptionExpiresAt,
         isPremium,
+        paymentRequired,
+        plans,
         signUp,
         signIn,
         signOut,
         updateProfile,
         setPremium,
+        refreshPaymentConfig,
       }}
     >
       {children}

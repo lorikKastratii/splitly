@@ -18,6 +18,7 @@ export const lightColors = {
   warning: '#D97706',
   warningLight: '#FEF3C7',
   info: '#0284C7',
+  infoLight: '#DBEAFE',
   
   // Backgrounds
   background: '#F1F5F9',
@@ -56,13 +57,14 @@ export const darkColors = {
   secondaryDark: '#EA580C',
 
   // Status colors - brighter, clearer intent
-  success: '#34D399',
+  success: '#065F46',
   successLight: '#0B2E20',
   danger: '#FB7185',
   dangerLight: '#2D0A14',
   warning: '#FCD34D',
   warningLight: '#2D1A00',
   info: '#38BDF8',
+  infoLight: '#0C1A2E',
 
   // Backgrounds - clear elevation hierarchy
   background: '#0D1117',
@@ -85,7 +87,7 @@ export const darkColors = {
   shadow: '#000000',
 
   // Avatar colors - vivid on dark
-  avatarColors: ['#2DD4BF', '#22D3EE', '#FB923C', '#FB7185', '#A78BFA', '#F472B6', '#34D399', '#FCD34D'],
+  avatarColors: ['#2DD4BF', '#22D3EE', '#FB923C', '#FB7185', '#A78BFA', '#F472B6', '#065F46', '#FCD34D'],
 };
 
 export type ThemeColors = typeof lightColors;

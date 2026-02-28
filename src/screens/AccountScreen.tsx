@@ -30,7 +30,7 @@ export default function AccountScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { groups, friends, loadData } = useStore();
   const { colors, toggleTheme, isDark } = useTheme();
-  const { user, signOut, profile: authProfile, updateProfile: updateAuthProfile, isPremium, subscriptionTier, subscriptionExpiresAt } = useAuth();
+  const { user, signOut, profile: authProfile, updateProfile: updateAuthProfile, isPremium, subscriptionTier, subscriptionExpiresAt, paymentRequired } = useAuth();
   const insets = useSafeAreaInsets();
   
   const [showEditModal, setShowEditModal] = useState(false);
@@ -274,41 +274,42 @@ export default function AccountScreen() {
         </View>
 
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Premium / Subscription Card */}
-          {!isPremium ? (
-            <TouchableOpacity
-              style={[styles.premiumCard, styles.premiumCardFree]}
-              onPress={() => navigation.navigate('Payment')}
-              activeOpacity={0.85}
-            >
-              <View style={styles.premiumBadgeRow}>
-                <Text style={styles.premiumBadgeIcon}>✨</Text>
-                <Text style={[styles.premiumBadgeText, styles.premiumBadgeTextFree]}>Upgrade to Premium</Text>
-              </View>
-              <Text style={[styles.premiumDescription, styles.premiumDescriptionFree]}>
-                You're on the free plan (1 group, 2 expenses total). Unlock unlimited for just $1/month.
-              </Text>
-              <View style={[styles.premiumButton, styles.premiumButtonFree]}>
-                <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 15 }}>See Plans →</Text>
-              </View>
-            </TouchableOpacity>
-          ) : (
-            <View style={[styles.premiumCard, styles.premiumCardPaid]}>
-              <View style={styles.premiumBadgeRow}>
-                <Text style={styles.premiumBadgeIcon}>⭐</Text>
-                <Text style={[styles.premiumBadgeText, styles.premiumBadgeTextPaid]}>
-                  {subscriptionTier === 'lifetime' ? 'Lifetime Member' : subscriptionTier === 'yearly' ? 'Yearly Plan' : 'Monthly Plan'}
+          {paymentRequired && (
+            !isPremium ? (
+              <TouchableOpacity
+                style={[styles.premiumCard, styles.premiumCardFree]}
+                onPress={() => navigation.navigate('Payment')}
+                activeOpacity={0.85}
+              >
+                <View style={styles.premiumBadgeRow}>
+                  <Text style={styles.premiumBadgeIcon}>✨</Text>
+                  <Text style={[styles.premiumBadgeText, styles.premiumBadgeTextFree]}>Upgrade to Premium</Text>
+                </View>
+                <Text style={[styles.premiumDescription, styles.premiumDescriptionFree]}>
+                  You're on the free plan (1 group, 2 expenses total). Unlock unlimited access.
                 </Text>
-              </View>
-              <Text style={[styles.premiumDescription, styles.premiumDescriptionPaid]}>
-                You have unlimited groups and expenses.
-              </Text>
-              {subscriptionExpiresAt && (
-                <Text style={styles.premiumExpiry}>
-                  Renews: {subscriptionExpiresAt.toLocaleDateString()}
+                <View style={[styles.premiumButton, styles.premiumButtonFree]}>
+                  <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 15 }}>See Plans →</Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.premiumCard, styles.premiumCardPaid]}>
+                <View style={styles.premiumBadgeRow}>
+                  <Text style={styles.premiumBadgeIcon}>⭐</Text>
+                  <Text style={[styles.premiumBadgeText, styles.premiumBadgeTextPaid]}>
+                    {subscriptionTier === 'lifetime' ? 'Lifetime Member' : subscriptionTier === 'yearly' ? 'Yearly Plan' : 'Monthly Plan'}
+                  </Text>
+                </View>
+                <Text style={[styles.premiumDescription, styles.premiumDescriptionPaid]}>
+                  You have unlimited groups and expenses.
                 </Text>
-              )}
-            </View>
+                {subscriptionExpiresAt && (
+                  <Text style={styles.premiumExpiry}>
+                    Renews: {subscriptionExpiresAt.toLocaleDateString()}
+                  </Text>
+                )}
+              </View>
+            )
           )}
 
           <View style={styles.statsRow}>

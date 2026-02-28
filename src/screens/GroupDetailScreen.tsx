@@ -43,7 +43,7 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
   const FREE_EXPENSE_LIMIT = 2;
   const { group } = route.params;
   const { groups, expenses: allExpenses, addSettlement, loadData, lastUpdated } = useStore();
-  const { profile, isPremium } = useAuth();
+  const { profile, isPremium, paymentRequired } = useAuth();
   const currentUserId = profile?.id || '';
 
   // Count total expenses this user has paid across ALL groups (for free tier limit)
@@ -708,7 +708,7 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.primary }]}
         onPress={() => {
-          if (!isPremium && userTotalExpenseCount >= FREE_EXPENSE_LIMIT) {
+          if (paymentRequired && !isPremium && userTotalExpenseCount >= FREE_EXPENSE_LIMIT) {
             Alert.alert(
               'Free Plan Limit',
               `Free plan allows ${FREE_EXPENSE_LIMIT} expenses total. Upgrade to Premium for unlimited expenses.`,
