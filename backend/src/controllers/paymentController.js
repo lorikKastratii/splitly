@@ -1,22 +1,28 @@
-const PAYMENT_API_URL = process.env.PAYMENT_API_URL;
-const PAYMENT_API_KEY = process.env.PAYMENT_API_KEY;
+function getConfig() {
+  return {
+    url: process.env.PAYMENT_API_URL,
+    key: process.env.PAYMENT_API_KEY,
+  };
+}
 
-function getHeaders() {
+function getHeaders(apiKey) {
   return {
     'Content-Type': 'application/json',
-    'X-Api-Key': PAYMENT_API_KEY,
+    'X-Api-Key': apiKey,
   };
 }
 
 exports.getPaymentConfig = async (_req, res) => {
-  if (!PAYMENT_API_URL || !PAYMENT_API_KEY) {
+  const { url, key } = getConfig();
+
+  if (!url || !key) {
     console.error('Payment API not configured: missing PAYMENT_API_URL or PAYMENT_API_KEY');
     return res.json({ paymentRequired: true });
   }
 
   try {
-    const response = await fetch(`${PAYMENT_API_URL}/v2/configs/payment-required`, {
-      headers: getHeaders(),
+    const response = await fetch(`${url}/v2/configs/payment-required`, {
+      headers: getHeaders(key),
     });
 
     if (!response.ok) {
@@ -33,13 +39,16 @@ exports.getPaymentConfig = async (_req, res) => {
 };
 
 exports.getPlans = async (_req, res) => {
-  if (!PAYMENT_API_URL || !PAYMENT_API_KEY) {
+  const { url, key } = getConfig();
+
+  if (!url || !key) {
+    console.error('Payment API not configured: missing PAYMENT_API_URL or PAYMENT_API_KEY');
     return res.json({ plans: [] });
   }
 
   try {
-    const response = await fetch(`${PAYMENT_API_URL}/v2/configs/plans`, {
-      headers: getHeaders(),
+    const response = await fetch(`${url}/v2/configs/plans`, {
+      headers: getHeaders(key),
     });
 
     if (!response.ok) {
@@ -63,15 +72,17 @@ exports.createIntent = async (req, res) => {
     return res.status(400).json({ error: 'planId is required.' });
   }
 
-  if (!PAYMENT_API_URL || !PAYMENT_API_KEY) {
+  const { url, key } = getConfig();
+
+  if (!url || !key) {
     console.error('Payment API not configured: missing PAYMENT_API_URL or PAYMENT_API_KEY');
     return res.status(503).json({ error: 'Payment service unavailable.' });
   }
 
   try {
-    const response = await fetch(`${PAYMENT_API_URL}/v2/payments/create-intent`, {
+    const response = await fetch(`${url}/v2/payments/create-intent`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: getHeaders(key),
       body: JSON.stringify({
         planId,
         userId: req.userId?.toString(),
