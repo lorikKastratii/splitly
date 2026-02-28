@@ -1,4 +1,20 @@
 function getConfig() {
+  const getEnvValue = (aliases) => {
+    for (const alias of aliases) {
+      if (process.env[alias]) return process.env[alias];
+    }
+
+    const envKeys = Object.keys(process.env);
+    for (const alias of aliases) {
+      const matchedKey = envKeys.find((envKey) => envKey.trim() === alias);
+      if (matchedKey && process.env[matchedKey]) {
+        return process.env[matchedKey];
+      }
+    }
+
+    return '';
+  };
+
   const sanitize = (value) => {
     if (typeof value !== 'string') return '';
     const trimmed = value.trim().replace(/^['\"]|['\"]$/g, '');
@@ -8,18 +24,18 @@ function getConfig() {
     return trimmed;
   };
 
-  const rawUrl = sanitize(
-    process.env.PAYMENT_API_URL
-    || process.env.PAYMENTSTRIPE_API_URL
-    || process.env.PAYMENT_URL
-  );
+  const rawUrl = sanitize(getEnvValue([
+    'PAYMENT_API_URL',
+    'PAYMENTSTRIPE_API_URL',
+    'PAYMENT_URL',
+  ]));
 
-  const rawKey = sanitize(
-    process.env.PAYMENT_API_KEY
-    || process.env.PAYMENTSTRIPE_API_KEY
-    || process.env.PAYMENT_APIKEY
-    || process.env.PAYMENT_KEY
-  );
+  const rawKey = sanitize(getEnvValue([
+    'PAYMENT_API_KEY',
+    'PAYMENTSTRIPE_API_KEY',
+    'PAYMENT_APIKEY',
+    'PAYMENT_KEY',
+  ]));
 
   const normalizedUrl = !rawUrl
     ? rawUrl
