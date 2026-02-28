@@ -56,6 +56,38 @@ function getHeaders(apiKey) {
   };
 }
 
+async function syncUserWithPaymentApi(userId, email) {
+  if (!userId) return false;
+
+  const { url, key } = getConfig();
+  if (!url || !key) {
+    logMissingConfigContext(url, key);
+    return false;
+  }
+
+  try {
+    const response = await fetch(`${url}/v2/users/sync`, {
+      method: 'POST',
+      headers: getHeaders(key),
+      body: JSON.stringify({
+        userId: String(userId),
+        email: email || null,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      console.error('Payment user sync failed:', response.status, errorBody);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Payment user sync error:', error);
+    return false;
+  }
+}
+
 function normalizePaymentRequired(payload) {
   if (typeof payload === 'boolean') return payload;
   if (typeof payload?.data === 'boolean') return payload.data;
@@ -209,3 +241,5 @@ exports.createIntent = async (req, res) => {
     return res.status(500).json({ error: 'An unexpected error occurred.' });
   }
 };
+
+exports.syncUserWithPaymentApi = syncUserWithPaymentApi;

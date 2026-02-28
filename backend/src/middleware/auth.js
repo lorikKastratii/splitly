@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { syncUserWithPaymentApi } = require('../controllers/paymentController');
 
 const authMiddleware = (req, res, next) => {
   try {
@@ -13,6 +14,10 @@ const authMiddleware = (req, res, next) => {
 
     req.userId = decoded.userId;
     req.userEmail = decoded.email;
+
+    syncUserWithPaymentApi(req.userId, req.userEmail).catch(() => {
+      // Best-effort sync only; auth flow should not fail when payment service is unavailable.
+    });
 
     next();
   } catch (error) {

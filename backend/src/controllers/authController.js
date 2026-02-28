@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/database');
 const { generateToken } = require('../utils/jwt');
+const { syncUserWithPaymentApi } = require('./paymentController');
 
 const register = async (req, res) => {
   const client = await pool.connect();
@@ -37,6 +38,8 @@ const register = async (req, res) => {
 
     const user = result.rows[0];
     const token = generateToken(user.id, user.email);
+
+    await syncUserWithPaymentApi(user.id, user.email);
 
     res.status(201).json({
       token,
@@ -82,6 +85,8 @@ const login = async (req, res) => {
     }
 
     const token = generateToken(user.id, user.email);
+
+    await syncUserWithPaymentApi(user.id, user.email);
 
     res.json({
       token,
