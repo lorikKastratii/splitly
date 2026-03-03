@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native';
 import { api } from '../lib/api';
 import { socketClient } from '../lib/socket';
 
@@ -84,8 +85,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const refreshEntitlement = async () => {
-    if (!paymentRequired) return;
-
     try {
       const entitlement = await api.getEntitlement();
 
@@ -100,10 +99,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    checkAuthStatus();
-    loadSubscription();
-    refreshPaymentConfig();
+    const initializeAuth = async () => {
+      await loadSubscription();
+      await refreshPaymentConfig();
+      await checkAuthStatus();
+    };
+
+    initializeAuth();
   }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && user) {
+        refreshEntitlement();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [user, refreshEntitlement]);
 
   const loadSubscription = async () => {
     try {
