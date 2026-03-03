@@ -121,6 +121,29 @@ function normalizePlan(plan) {
   };
 }
 
+function extractSyncPayload(payload) {
+  if (!payload || typeof payload !== 'object') return {};
+
+  const candidates = [
+    payload,
+    payload?.data,
+    payload?.result,
+  ];
+
+  return candidates.find((candidate) => candidate && typeof candidate === 'object') || {};
+}
+
+function normalizeLifetimeAccess(payload) {
+  const syncPayload = extractSyncPayload(payload);
+
+  const directFlag = syncPayload.hasLifetimeAccess;
+  const pascalFlag = syncPayload.HasLifetimeAccess;
+
+  if (typeof directFlag === 'boolean') return directFlag;
+  if (typeof pascalFlag === 'boolean') return pascalFlag;
+  return false;
+}
+
 function extractPlans(payload) {
   const candidates = [
     payload,
@@ -239,6 +262,55 @@ exports.createIntent = async (req, res) => {
   } catch (error) {
     console.error('Payment controller error:', error);
     return res.status(500).json({ error: 'An unexpected error occurred.' });
+  }
+};
+
+exports.getEntitlement = async (req, res) => {
+  const userId = req.userId;
+  const userEmail = req.userEmail;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { url, key } = getConfig();
+
+  if (!url || !key) {
+    logMissingConfigContext(url, key);
+    return res.json({
+      synced: false,
+      hasLifetimeAccess: false,
+      tier: 'free',
+    });
+  }
+
+  try {
+    const response = await fetch(`${url}/v2/users/sync`, {
+      method: 'POST',
+      headers: getHeaders(key),
+      body: JSON.stringify({
+        userId: String(userId),
+        email: userEmail || null,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      console.error('Payment entitlement sync failed:', response.status, errorBody);
+      return res.status(502).json({ error: 'Failed to retrieve payment entitlement.' });
+    }
+
+    const data = await response.json();
+    const hasLifetimeAccess = normalizeLifetimeAccess(data);
+
+    return res.json({
+      synced: true,
+      hasLifetimeAccess,
+      tier: hasLifetimeAccess ? 'lifetime' : 'free',
+    });
+  } catch (error) {
+    console.error('Payment entitlement error:', error);
+    return res.status(500).json({ error: 'Failed to retrieve payment entitlement.' });
   }
 };
 

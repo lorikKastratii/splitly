@@ -31,6 +31,7 @@ interface AuthContextType {
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: Error | null }>;
   setPremium: (tier: SubscriptionTier, expiresAt: Date | null) => Promise<void>;
   refreshPaymentConfig: () => Promise<void>;
+  refreshEntitlement: () => Promise<void>;
 }
 
 interface UserProfile {
@@ -82,6 +83,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshEntitlement = async () => {
+    if (!paymentRequired) return;
+
+    try {
+      const entitlement = await api.getEntitlement();
+
+      if (entitlement.hasLifetimeAccess) {
+        await setPremium('lifetime', null);
+      } else if (subscriptionTier === 'lifetime') {
+        await setPremium('free', null);
+      }
+    } catch {
+      // Keep current local subscription state on transient entitlement failures
+    }
+  };
+
   useEffect(() => {
     checkAuthStatus();
     loadSubscription();
@@ -129,6 +146,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         avatar_url: userData.avatar_url,
       });
 
+      await refreshEntitlement();
+
       await socketClient.connect();
     } catch (error) {
       console.error('Auth check error:', error);
@@ -149,6 +168,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         username: userData.name,
         avatar_url: userData.avatar_url,
       });
+
+      await refreshEntitlement();
 
       await socketClient.connect();
 
@@ -171,6 +192,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       await AsyncStorage.multiRemove(['groups', 'expenses', 'settlements', 'friends']);
+
+      await refreshEntitlement();
 
       await socketClient.connect();
 
@@ -242,6 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updateProfile,
         setPremium,
         refreshPaymentConfig,
+        refreshEntitlement,
       }}
     >
       {children}

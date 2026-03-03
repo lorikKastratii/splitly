@@ -311,6 +311,14 @@ class ApiClient {
     });
   }
 
+  async getEntitlement(): Promise<{
+    synced: boolean;
+    hasLifetimeAccess: boolean;
+    tier: 'free' | 'lifetime';
+  }> {
+    return await this.request('/payments/entitlement');
+  }
+
   getFullUrl(path: string): string {
     if (path.startsWith('http')) return path;
     return this.baseUrl.replace(/\/api$/, '') + path;

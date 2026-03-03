@@ -5,6 +5,7 @@ const paymentController = require('../controllers/paymentController');
 
 router.get('/config', paymentController.getPaymentConfig);
 router.get('/plans', paymentController.getPlans);
+router.get('/entitlement', authMiddleware, paymentController.getEntitlement);
 router.post('/create-intent', authMiddleware, paymentController.createIntent);
 
 module.exports = router;

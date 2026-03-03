@@ -56,7 +56,7 @@ function billingPeriodToTier(period: string): SubscriptionTier {
 
 export default function PaymentScreen({ navigation }: Props) {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
-  const { setPremium, plans } = useAuth();
+  const { setPremium, refreshEntitlement, plans } = useAuth();
   const { colors } = useTheme();
 
   const sortedPlans = [...plans].sort((a, b) => a.sortOrder - b.sortOrder);
@@ -105,6 +105,7 @@ export default function PaymentScreen({ navigation }: Props) {
       }
 
       await setPremium(tier, expiresAt);
+      await refreshEntitlement();
 
       Alert.alert(
         'Welcome to Premium!',
