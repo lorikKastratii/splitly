@@ -37,6 +37,10 @@ app.use(morgan('combined'));
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
 }));
+
+// Webhook route needs raw body for HMAC signature verification — must come before express.json()
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

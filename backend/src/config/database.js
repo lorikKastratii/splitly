@@ -136,6 +136,20 @@ const initDatabase = async () => {
       )
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_subscriptions (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        stripe_subscription_id TEXT UNIQUE NOT NULL,
+        stripe_customer_id TEXT,
+        plan_id TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        trial_end TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
     console.log('✓ Database tables initialized');
   } catch (err) {
     console.error('Database initialization error:', err);
