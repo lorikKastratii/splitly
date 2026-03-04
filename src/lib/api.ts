@@ -319,6 +319,50 @@ class ApiClient {
     return await this.request('/payments/entitlement');
   }
 
+  async checkTrialEligibility(planId: string, deviceFingerprint?: string): Promise<{
+    eligible: boolean;
+    reason: string | null;
+    trialDays: number;
+    requiresCard: boolean;
+    introPriceInCents: number | null;
+    regularPriceInCents: number | null;
+    currency: string | null;
+  }> {
+    return await this.request('/payments/trials/check-eligibility', {
+      method: 'POST',
+      body: { planId, ...(deviceFingerprint ? { deviceFingerprint } : {}) },
+    });
+  }
+
+  async startTrial(planId: string, paymentMethodId?: string, deviceFingerprint?: string): Promise<{
+    subscriptionId: string;
+    stripeSubscriptionId: string;
+    status: string;
+    trialEnd: string;
+    trialDays: number;
+    planName: string;
+    requiresCard: boolean;
+  }> {
+    return await this.request('/payments/trials/start', {
+      method: 'POST',
+      body: {
+        planId,
+        ...(paymentMethodId ? { paymentMethodId } : {}),
+        ...(deviceFingerprint ? { deviceFingerprint } : {}),
+      },
+    });
+  }
+
+  async cancelTrial(subscriptionId: string): Promise<{
+    subscriptionId: string;
+    status: string;
+    canceledAt: string;
+  }> {
+    return await this.request(`/payments/trials/${subscriptionId}/cancel`, {
+      method: 'POST',
+    });
+  }
+
   getFullUrl(path: string): string {
     if (path.startsWith('http')) return path;
     return this.baseUrl.replace(/\/api$/, '') + path;

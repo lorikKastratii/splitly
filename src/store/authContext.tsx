@@ -4,7 +4,7 @@ import { AppState } from 'react-native';
 import { api } from '../lib/api';
 import { socketClient } from '../lib/socket';
 
-export type SubscriptionTier = 'free' | 'monthly' | 'yearly' | 'lifetime';
+export type SubscriptionTier = 'free' | 'trialing' | 'monthly' | 'yearly' | 'lifetime';
 
 export interface PaymentPlan {
   id: string;
@@ -23,6 +23,7 @@ interface AuthContextType {
   loading: boolean;
   subscriptionTier: SubscriptionTier;
   subscriptionExpiresAt: Date | null;
+  trialEnd: Date | null;
   isPremium: boolean;
   paymentRequired: boolean;
   plans: PaymentPlan[];
@@ -31,6 +32,8 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: Error | null }>;
   setPremium: (tier: SubscriptionTier, expiresAt: Date | null) => Promise<void>;
+  setTrialing: (trialEnd: Date, subscriptionId: string) => Promise<void>;
+  cancelTrial: () => Promise<void>;
   refreshPaymentConfig: () => Promise<void>;
   refreshEntitlement: () => Promise<void>;
 }
@@ -53,6 +56,7 @@ interface User {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const SUBSCRIPTION_STORAGE_KEY = 'subscription';
+const TRIAL_STORAGE_KEY = 'trial';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -60,16 +64,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
   const [subscriptionExpiresAt, setSubscriptionExpiresAt] = useState<Date | null>(null);
+  const [trialEnd, setTrialEnd] = useState<Date | null>(null);
+  const [trialSubscriptionId, setTrialSubscriptionId] = useState<string | null>(null);
   const [paymentRequired, setPaymentRequired] = useState(true);
   const [plans, setPlans] = useState<PaymentPlan[]>([]);
 
   const isPremium = React.useMemo(() => {
     if (!paymentRequired) return true;
-    if (subscriptionTier === 'free') return false;
     if (subscriptionTier === 'lifetime') return true;
+    if (subscriptionTier === 'trialing') return trialEnd ? trialEnd > new Date() : false;
+    if (subscriptionTier === 'free') return false;
     if (!subscriptionExpiresAt) return false;
     return subscriptionExpiresAt > new Date();
-  }, [subscriptionTier, subscriptionExpiresAt, paymentRequired]);
+  }, [subscriptionTier, subscriptionExpiresAt, trialEnd, paymentRequired]);
 
   const refreshPaymentConfig = async () => {
     try {
@@ -118,13 +125,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.remove();
   }, [user, refreshEntitlement]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const handleTrialConverted = () => {
+      setSubscriptionTier('monthly');
+      setTrialEnd(null);
+      setTrialSubscriptionId(null);
+      AsyncStorage.removeItem(TRIAL_STORAGE_KEY).catch(() => {});
+      refreshEntitlement();
+    };
+
+    const handleTrialExpired = () => {
+      setSubscriptionTier('free');
+      setTrialEnd(null);
+      setTrialSubscriptionId(null);
+      Promise.all([
+        AsyncStorage.setItem(SUBSCRIPTION_STORAGE_KEY, JSON.stringify({ tier: 'free', expiresAt: null })),
+        AsyncStorage.removeItem(TRIAL_STORAGE_KEY),
+      ]).catch(() => {});
+    };
+
+    const handleTrialEndingSoon = (data: { trialEnd: string }) => {
+      if (data?.trialEnd) setTrialEnd(new Date(data.trialEnd));
+    };
+
+    socketClient.on('trial:converted', handleTrialConverted);
+    socketClient.on('trial:expired', handleTrialExpired);
+    socketClient.on('trial:ending_soon', handleTrialEndingSoon);
+    socketClient.on('payment:succeeded', refreshEntitlement);
+    socketClient.on('subscription:updated', refreshEntitlement);
+
+    return () => {
+      socketClient.off('trial:converted', handleTrialConverted);
+      socketClient.off('trial:expired', handleTrialExpired);
+      socketClient.off('trial:ending_soon', handleTrialEndingSoon);
+      socketClient.off('payment:succeeded', refreshEntitlement);
+      socketClient.off('subscription:updated', refreshEntitlement);
+    };
+  }, [user?.id]);
+
   const loadSubscription = async () => {
     try {
-      const stored = await AsyncStorage.getItem(SUBSCRIPTION_STORAGE_KEY);
-      if (stored) {
-        const { tier, expiresAt } = JSON.parse(stored);
+      const [stored, storedTrial] = await AsyncStorage.multiGet([SUBSCRIPTION_STORAGE_KEY, TRIAL_STORAGE_KEY]);
+      if (stored[1]) {
+        const { tier, expiresAt } = JSON.parse(stored[1]);
         setSubscriptionTier(tier as SubscriptionTier);
         setSubscriptionExpiresAt(expiresAt ? new Date(expiresAt) : null);
+      }
+      if (storedTrial[1]) {
+        const { trialEnd: storedTrialEnd, subscriptionId } = JSON.parse(storedTrial[1]);
+        setTrialEnd(storedTrialEnd ? new Date(storedTrialEnd) : null);
+        setTrialSubscriptionId(subscriptionId ?? null);
       }
     } catch {
       // ignore
@@ -138,6 +190,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       SUBSCRIPTION_STORAGE_KEY,
       JSON.stringify({ tier, expiresAt: expiresAt?.toISOString() ?? null })
     );
+  };
+
+  const setTrialing = async (trialEndDate: Date, subscriptionId: string) => {
+    setSubscriptionTier('trialing');
+    setTrialEnd(trialEndDate);
+    setTrialSubscriptionId(subscriptionId);
+    await Promise.all([
+      AsyncStorage.setItem(SUBSCRIPTION_STORAGE_KEY, JSON.stringify({ tier: 'trialing', expiresAt: null })),
+      AsyncStorage.setItem(TRIAL_STORAGE_KEY, JSON.stringify({ trialEnd: trialEndDate.toISOString(), subscriptionId })),
+    ]);
+  };
+
+  const cancelTrial = async () => {
+    if (!trialSubscriptionId) return;
+    await api.cancelTrial(trialSubscriptionId);
+    setSubscriptionTier('free');
+    setTrialEnd(null);
+    setTrialSubscriptionId(null);
+    await Promise.all([
+      AsyncStorage.setItem(SUBSCRIPTION_STORAGE_KEY, JSON.stringify({ tier: 'free', expiresAt: null })),
+      AsyncStorage.removeItem(TRIAL_STORAGE_KEY),
+    ]);
   };
 
   const checkAuthStatus = async () => {
@@ -230,9 +304,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         'settlements',
         'friends',
         SUBSCRIPTION_STORAGE_KEY,
+        TRIAL_STORAGE_KEY,
       ]);
       setSubscriptionTier('free');
       setSubscriptionExpiresAt(null);
+      setTrialEnd(null);
+      setTrialSubscriptionId(null);
     } catch (error) {
       console.error('Sign out error:', error);
     }
@@ -269,6 +346,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         subscriptionTier,
         subscriptionExpiresAt,
+        trialEnd,
         isPremium,
         paymentRequired,
         plans,
@@ -277,6 +355,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut,
         updateProfile,
         setPremium,
+        setTrialing,
+        cancelTrial,
         refreshPaymentConfig,
         refreshEntitlement,
       }}
