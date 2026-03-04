@@ -130,6 +130,27 @@ exports.handleWebhook = async (req, res) => {
         break;
       }
 
+      case 'payment.refunded': {
+        const userId = data?.user_id;
+        console.log('Payment refunded:', {
+          paymentIntentId: data?.payment_intent_id,
+          refundId: data?.refund_id,
+          amountCents: data?.amount_cents,
+          type: data?.type,
+          reason: data?.reason,
+        });
+
+        if (io && userId) {
+          io.to(`user-${userId}`).emit('payment:refunded', {
+            paymentIntentId: data?.payment_intent_id,
+            amountCents: data?.amount_cents,
+            currency: data?.currency,
+            type: data?.type,
+          });
+        }
+        break;
+      }
+
       case 'subscription.updated': {
         const stripeSubId = data?.stripe_subscription_id;
         console.log('Subscription updated:', stripeSubId, { status: data?.status });
