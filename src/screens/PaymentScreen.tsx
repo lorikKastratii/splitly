@@ -434,9 +434,9 @@ export default function PaymentScreen({ navigation }: Props) {
               </View>
 
               <TouchableOpacity
-                style={[styles.ctaButton, (loading || !selectedPlan) && styles.ctaButtonDisabled]}
+                style={[styles.ctaButton, (loading || trialLoading || !selectedPlan) && styles.ctaButtonDisabled]}
                 onPress={handlePurchase}
-                disabled={loading || !selectedPlan}
+                disabled={loading || trialLoading || !selectedPlan}
                 activeOpacity={0.8}
               >
                 {loading ? (
