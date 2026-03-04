@@ -1,3 +1,5 @@
+const { pool } = require('../config/database');
+
 function getConfig() {
   const getEnvValue = (aliases) => {
     for (const alias of aliases) {
@@ -311,6 +313,157 @@ exports.getEntitlement = async (req, res) => {
   } catch (error) {
     console.error('Payment entitlement error:', error);
     return res.status(500).json({ error: 'Failed to retrieve payment entitlement.' });
+  }
+};
+
+// ── Trial endpoints ─────────────────────────────────────────────────────────
+
+exports.checkTrialEligibility = async (req, res) => {
+  const { planId, deviceFingerprint } = req.body;
+
+  if (!planId) {
+    return res.status(400).json({ error: 'planId is required.' });
+  }
+
+  const { url, key } = getConfig();
+
+  if (!url || !key) {
+    logMissingConfigContext(url, key);
+    return res.status(503).json({ error: 'Payment service unavailable.' });
+  }
+
+  try {
+    const response = await fetch(`${url}/v2/trials/check-eligibility`, {
+      method: 'POST',
+      headers: getHeaders(key),
+      body: JSON.stringify({
+        planId,
+        userId: req.userId?.toString(),
+        email: req.userEmail || null,
+        deviceFingerprint: deviceFingerprint || null,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json(data);
+    }
+
+    const payload = data.data || data;
+    return res.json({
+      eligible: payload.eligible ?? false,
+      reason: payload.reason ?? null,
+      trialDays: payload.trialDays ?? payload.TrialDays ?? 0,
+      requiresCard: payload.requiresCard ?? payload.RequiresCard ?? false,
+      introPriceInCents: payload.introPriceInCents ?? payload.IntroPriceInCents ?? null,
+      regularPriceInCents: payload.regularPriceInCents ?? payload.RegularPriceInCents ?? null,
+      currency: payload.currency ?? payload.Currency ?? null,
+    });
+  } catch (error) {
+    console.error('Trial eligibility check error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred.' });
+  }
+};
+
+exports.startTrial = async (req, res) => {
+  const { planId, paymentMethodId, deviceFingerprint } = req.body;
+
+  if (!planId) {
+    return res.status(400).json({ error: 'planId is required.' });
+  }
+
+  const { url, key } = getConfig();
+
+  if (!url || !key) {
+    logMissingConfigContext(url, key);
+    return res.status(503).json({ error: 'Payment service unavailable.' });
+  }
+
+  try {
+    const response = await fetch(`${url}/v2/trials/start`, {
+      method: 'POST',
+      headers: getHeaders(key),
+      body: JSON.stringify({
+        planId,
+        userId: req.userId?.toString(),
+        email: req.userEmail || null,
+        paymentMethodId: paymentMethodId || null,
+        deviceFingerprint: deviceFingerprint || null,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json(data);
+    }
+
+    const payload = data.data || data;
+    const stripeSubscriptionId = payload.stripeSubscriptionId ?? payload.StripeSubscriptionId;
+
+    if (stripeSubscriptionId && req.userId) {
+      pool.query(
+        `INSERT INTO user_subscriptions (user_id, stripe_subscription_id, plan_id, status, trial_end)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (stripe_subscription_id) DO UPDATE
+           SET status = EXCLUDED.status, trial_end = EXCLUDED.trial_end, updated_at = NOW()`,
+        [
+          req.userId,
+          stripeSubscriptionId,
+          planId,
+          payload.status ?? payload.Status ?? 'trialing',
+          payload.trialEnd ?? payload.TrialEnd ?? null,
+        ],
+      ).catch((err) => console.error('Failed to save user subscription mapping:', err));
+    }
+
+    return res.json({
+      subscriptionId: payload.subscriptionId ?? payload.SubscriptionId,
+      stripeSubscriptionId,
+      status: payload.status ?? payload.Status,
+      trialEnd: payload.trialEnd ?? payload.TrialEnd,
+      trialDays: payload.trialDays ?? payload.TrialDays,
+      planName: payload.planName ?? payload.PlanName,
+      requiresCard: payload.requiresCard ?? payload.RequiresCard,
+    });
+  } catch (error) {
+    console.error('Start trial error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred.' });
+  }
+};
+
+exports.cancelTrial = async (req, res) => {
+  const { subscriptionId } = req.params;
+
+  const { url, key } = getConfig();
+
+  if (!url || !key) {
+    logMissingConfigContext(url, key);
+    return res.status(503).json({ error: 'Payment service unavailable.' });
+  }
+
+  try {
+    const response = await fetch(`${url}/v2/trials/${subscriptionId}/cancel`, {
+      method: 'POST',
+      headers: getHeaders(key),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json(data);
+    }
+
+    const payload = data.data || data;
+    return res.json({
+      subscriptionId: payload.Id ?? payload.id ?? subscriptionId,
+      status: payload.Status ?? payload.status,
+      canceledAt: payload.canceledAt ?? new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Cancel trial error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred.' });
   }
 };
 
