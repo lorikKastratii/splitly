@@ -40,6 +40,22 @@ function verifySignature(rawBody, signatureHeader, secret) {
 }
 
 /**
+ * Revokes all active subscriptions for a given user_id.
+ * Used when PaymentStripe notifies us that access was revoked (e.g. after a full refund).
+ */
+async function revokeAccessByUserId(userId) {
+  if (!userId) return;
+  try {
+    await pool.query(
+      "UPDATE user_subscriptions SET status = 'revoked', updated_at = NOW() WHERE user_id = $1 AND status = 'active'",
+      [userId]
+    );
+  } catch (err) {
+    console.error('Failed to revoke access for user:', userId, err);
+  }
+}
+
+/**
  * Looks up the Splitly user_id from a stripe_subscription_id.
  * Returns null if not found.
  */
@@ -211,6 +227,65 @@ exports.handleWebhook = async (req, res) => {
           io.to(`user-${userId}`).emit('trial:expired', {
             stripeSubscriptionId: stripeSubId,
             expiredAt: data?.expired_at,
+          });
+        }
+        break;
+      }
+
+      case 'access.revoked': {
+        const userId = data?.user_id;
+        console.log('Access revoked:', {
+          userId,
+          reason: data?.reason,
+          billingPeriod: data?.billing_period,
+          planId: data?.plan_id,
+        });
+
+        await revokeAccessByUserId(userId);
+
+        if (io && userId) {
+          io.to(`user-${userId}`).emit('access:revoked', {
+            reason: data?.reason,
+            billingPeriod: data?.billing_period,
+          });
+        }
+        break;
+      }
+
+      case 'subscription.renewed': {
+        const stripeSubId = data?.stripe_subscription_id;
+        console.log('Subscription renewed:', stripeSubId, {
+          amountCents: data?.amount_cents,
+          currency: data?.currency,
+        });
+
+        const userId = await findUserByStripeSubscription(stripeSubId);
+
+        if (io && userId) {
+          io.to(`user-${userId}`).emit('subscription:renewed', {
+            stripeSubscriptionId: stripeSubId,
+            amountCents: data?.amount_cents,
+            currency: data?.currency,
+          });
+        }
+        break;
+      }
+
+      case 'subscription.renewal_failed': {
+        const stripeSubId = data?.stripe_subscription_id;
+        console.log('Subscription renewal failed:', stripeSubId, {
+          attemptCount: data?.attempt_count,
+          amountCents: data?.amount_cents,
+        });
+
+        const userId = await findUserByStripeSubscription(stripeSubId);
+
+        if (io && userId) {
+          io.to(`user-${userId}`).emit('subscription:renewal_failed', {
+            stripeSubscriptionId: stripeSubId,
+            amountCents: data?.amount_cents,
+            currency: data?.currency,
+            attemptCount: data?.attempt_count,
           });
         }
         break;
