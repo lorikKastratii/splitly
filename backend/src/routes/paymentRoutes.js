@@ -17,4 +17,8 @@ router.post('/trials/check-eligibility', authMiddleware, paymentController.check
 router.post('/trials/start', authMiddleware, paymentController.startTrial);
 router.post('/trials/:subscriptionId/cancel', authMiddleware, paymentController.cancelTrial);
 
+// Coupon endpoints
+router.post('/coupons/validate', authMiddleware, paymentController.validateCoupon);
+router.post('/create-intent-with-coupon', authMiddleware, paymentController.createIntentWithCoupon);
+
 module.exports = router;

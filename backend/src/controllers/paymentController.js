@@ -468,3 +468,101 @@ exports.cancelTrial = async (req, res) => {
 };
 
 exports.syncUserWithPaymentApi = syncUserWithPaymentApi;
+
+// ── Coupon endpoints ────────────────────────────────────────────────────────
+
+exports.validateCoupon = async (req, res) => {
+  const { code, planId } = req.body;
+
+  if (!code || !planId) {
+    return res.status(400).json({ error: 'code and planId are required.' });
+  }
+
+  const { url, key } = getConfig();
+
+  if (!url || !key) {
+    logMissingConfigContext(url, key);
+    return res.status(503).json({ error: 'Payment service unavailable.' });
+  }
+
+  try {
+    const response = await fetch(`${url}/v2/coupons/validate`, {
+      method: 'POST',
+      headers: getHeaders(key),
+      body: JSON.stringify({ code, planId }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json(data);
+    }
+
+    const payload = data.data || data;
+    return res.json({
+      valid: payload.valid ?? false,
+      discountType: payload.discountType ?? null,
+      percentOff: payload.percentOff ?? null,
+      amountOffCents: payload.amountOffCents ?? null,
+      currency: payload.currency ?? null,
+      duration: payload.duration ?? null,
+      durationInMonths: payload.durationInMonths ?? null,
+      couponName: payload.couponName ?? null,
+      originalPriceCents: payload.originalPriceCents ?? null,
+      discountedPriceCents: payload.discountedPriceCents ?? null,
+      error: payload.error ?? null,
+    });
+  } catch (error) {
+    console.error('Coupon validation error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred.' });
+  }
+};
+
+exports.createIntentWithCoupon = async (req, res) => {
+  const { planId, promotionCode } = req.body;
+
+  if (!planId) {
+    return res.status(400).json({ error: 'planId is required.' });
+  }
+
+  const { url, key } = getConfig();
+
+  if (!url || !key) {
+    logMissingConfigContext(url, key);
+    return res.status(503).json({ error: 'Payment service unavailable.' });
+  }
+
+  try {
+    const response = await fetch(`${url}/v2/payments/create-intent`, {
+      method: 'POST',
+      headers: getHeaders(key),
+      body: JSON.stringify({
+        planId,
+        userId: req.userId?.toString(),
+        email: req.userEmail,
+        promotionCode: promotionCode || null,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      console.error('PaymentStripe API error:', response.status, errorBody);
+      const msg = errorBody?.error?.message || 'Payment initialization failed. Please try again.';
+      return res.status(502).json({ error: msg });
+    }
+
+    const data = await response.json();
+    const payload = data.data || data;
+    return res.json({
+      clientSecret: payload.clientSecret || payload.client_secret,
+      paymentIntentId: payload.paymentIntentId || payload.payment_intent_id,
+      originalAmountCents: payload.originalAmountCents ?? null,
+      discountAmountCents: payload.discountAmountCents ?? null,
+      finalAmountCents: payload.finalAmountCents ?? null,
+      promotionCode: payload.promotionCode ?? null,
+    });
+  } catch (error) {
+    console.error('Payment controller error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred.' });
+  }
+};

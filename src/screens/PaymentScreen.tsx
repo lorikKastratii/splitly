@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
   StatusBar,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStripe } from '@stripe/stripe-react-native';
@@ -30,6 +31,18 @@ interface TrialEligibility {
   trialDays: number;
   requiresCard: boolean;
   currency: string | null;
+}
+
+interface CouponValidation {
+  valid: boolean;
+  discountType: string | null;
+  percentOff: number | null;
+  amountOffCents: number | null;
+  couponName: string | null;
+  originalPriceCents: number | null;
+  discountedPriceCents: number | null;
+  duration: string | null;
+  error: string | null;
 }
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
@@ -76,6 +89,12 @@ export default function PaymentScreen({ navigation }: Props) {
   const [trialEligibility, setTrialEligibility] = useState<TrialEligibility | null>(null);
   const [eligibilityLoading, setEligibilityLoading] = useState(false);
 
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [couponValidation, setCouponValidation] = useState<CouponValidation | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [appliedCode, setAppliedCode] = useState<string | null>(null);
+
   const selectedPlan = sortedPlans.find((p) => p.id === selectedPlanId);
 
   // Check trial eligibility whenever the selected plan changes
@@ -100,6 +119,49 @@ export default function PaymentScreen({ navigation }: Props) {
 
     return () => { cancelled = true; };
   }, [selectedPlanId]);
+
+  // Clear coupon when plan changes
+  useEffect(() => {
+    setCouponValidation(null);
+    setAppliedCode(null);
+  }, [selectedPlanId]);
+
+  const handleApplyCoupon = useCallback(async () => {
+    const trimmed = couponCode.trim();
+    if (!trimmed || !selectedPlanId) return;
+
+    setCouponLoading(true);
+    try {
+      const result = await api.validateCoupon(trimmed, selectedPlanId);
+      setCouponValidation(result);
+      if (result.valid) {
+        setAppliedCode(trimmed.toUpperCase());
+      } else {
+        setAppliedCode(null);
+      }
+    } catch (error: any) {
+      setCouponValidation({
+        valid: false,
+        error: error?.message || 'Failed to validate code',
+        discountType: null,
+        percentOff: null,
+        amountOffCents: null,
+        couponName: null,
+        originalPriceCents: null,
+        discountedPriceCents: null,
+        duration: null,
+      });
+      setAppliedCode(null);
+    } finally {
+      setCouponLoading(false);
+    }
+  }, [couponCode, selectedPlanId]);
+
+  const handleRemoveCoupon = () => {
+    setCouponCode('');
+    setCouponValidation(null);
+    setAppliedCode(null);
+  };
 
   const handleStartTrial = async () => {
     if (!selectedPlan || !trialEligibility?.eligible) return;
@@ -136,7 +198,9 @@ export default function PaymentScreen({ navigation }: Props) {
 
     setLoading(true);
     try {
-      const { clientSecret } = await api.createPaymentIntent(selectedPlan.id);
+      const { clientSecret } = appliedCode
+        ? await api.createPaymentIntentWithCoupon(selectedPlan.id, appliedCode)
+        : await api.createPaymentIntent(selectedPlan.id);
 
       const { error: initError } = await initPaymentSheet({
         paymentIntentClientSecret: clientSecret,
@@ -184,6 +248,10 @@ export default function PaymentScreen({ navigation }: Props) {
   };
 
   const showTrialBanner = trialEligibility?.eligible && !trialEligibility.requiresCard;
+
+  const discountedPrice = appliedCode && couponValidation?.valid && couponValidation.discountedPriceCents != null
+    ? couponValidation.discountedPriceCents
+    : null;
 
   const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: colors.background },
@@ -248,6 +316,7 @@ export default function PaymentScreen({ navigation }: Props) {
     planLabel: { fontSize: 18, fontWeight: '600', color: colors.text },
     planPriceRow: { flexDirection: 'row', alignItems: 'baseline', marginTop: 2 },
     planPrice: { fontSize: 28, fontWeight: '700', color: colors.primary },
+    planPriceStrikethrough: { fontSize: 16, color: colors.textMuted, textDecorationLine: 'line-through', marginRight: 8 },
     planPeriod: { fontSize: 14, color: colors.textSecondary, marginLeft: 2 },
     planBadge: {
       backgroundColor: colors.primary,
@@ -281,6 +350,51 @@ export default function PaymentScreen({ navigation }: Props) {
     featureRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
     featureCheck: { fontSize: 14, color: colors.primary, marginRight: 8 },
     featureText: { fontSize: 14, color: colors.textSecondary },
+    // Coupon styles
+    couponSection: { marginTop: 8, marginBottom: 16 },
+    couponRow: { flexDirection: 'row', alignItems: 'center' },
+    couponInput: {
+      flex: 1,
+      height: 44,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      fontSize: 15,
+      color: colors.text,
+      backgroundColor: colors.card,
+      textTransform: 'uppercase',
+    },
+    couponInputError: { borderColor: colors.danger },
+    couponInputValid: { borderColor: colors.primary },
+    couponApplyButton: {
+      marginLeft: 10,
+      height: 44,
+      paddingHorizontal: 16,
+      borderRadius: 10,
+      backgroundColor: colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    couponApplyButtonDisabled: { opacity: 0.5 },
+    couponApplyText: { fontSize: 14, fontWeight: '600', color: colors.textInverse },
+    couponHint: { marginTop: 6, fontSize: 12, color: colors.textMuted },
+    couponMessage: { marginTop: 6, fontSize: 13 },
+    couponMessageError: { color: colors.danger },
+    couponMessageSuccess: { color: colors.primary },
+    couponAppliedRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.primaryLight + '15',
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderWidth: 1,
+      borderColor: colors.primary + '30',
+    },
+    couponAppliedText: { fontSize: 14, fontWeight: '600', color: colors.primary, flex: 1 },
+    couponRemoveText: { fontSize: 13, color: colors.danger, fontWeight: '600' },
     trialButton: {
       backgroundColor: colors.primary,
       borderRadius: 14,
@@ -316,6 +430,81 @@ export default function PaymentScreen({ navigation }: Props) {
     dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
     dividerText: { marginHorizontal: 10, fontSize: 12, color: colors.textMuted },
   });
+
+  const renderCouponSection = () => {
+    if (appliedCode && couponValidation?.valid) {
+      const discountLabel = couponValidation.discountType === 'percentage'
+        ? `${couponValidation.percentOff}% off`
+        : couponValidation.amountOffCents
+          ? `${formatPlanPrice(couponValidation.amountOffCents, selectedPlan?.currency || 'eur')} off`
+          : '';
+      const durationLabel = couponValidation.duration === 'once'
+        ? ' (first payment)'
+        : couponValidation.duration === 'forever'
+          ? ' (forever)'
+          : couponValidation.duration === 'repeating'
+            ? ` (${couponValidation.durationInMonths} months)`
+            : '';
+
+      return (
+        <View style={styles.couponSection}>
+          <View style={styles.couponAppliedRow}>
+            <Text style={styles.couponAppliedText}>
+              {appliedCode} — {discountLabel}{durationLabel}
+            </Text>
+            <TouchableOpacity onPress={handleRemoveCoupon}>
+              <Text style={styles.couponRemoveText}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.couponSection}>
+        <Text style={styles.sectionTitle}>Have a promo code?</Text>
+        <View style={styles.couponRow}>
+          <TextInput
+            style={[
+              styles.couponInput,
+              couponValidation && !couponValidation.valid && styles.couponInputError,
+            ]}
+            placeholder="Enter code"
+            placeholderTextColor={colors.textMuted}
+            value={couponCode}
+            onChangeText={(text) => {
+              setCouponCode(text.toUpperCase());
+              if (couponValidation) setCouponValidation(null);
+            }}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            editable={!couponLoading}
+          />
+          <TouchableOpacity
+            style={[styles.couponApplyButton, (!couponCode.trim() || couponLoading) && styles.couponApplyButtonDisabled]}
+            onPress={handleApplyCoupon}
+            disabled={!couponCode.trim() || couponLoading}
+          >
+            {couponLoading ? (
+              <ActivityIndicator size="small" color={colors.textInverse} />
+            ) : (
+              <Text style={styles.couponApplyText}>Apply</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+        {!couponValidation && (
+          <Text style={styles.couponHint}>
+            Enter the promotion code created under the coupon, not the coupon name.
+          </Text>
+        )}
+        {couponValidation && !couponValidation.valid && (
+          <Text style={[styles.couponMessage, styles.couponMessageError]}>
+            {couponValidation.error || 'Invalid code'}
+          </Text>
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -363,6 +552,7 @@ export default function PaymentScreen({ navigation }: Props) {
             sortedPlans.map((plan, index) => {
               const isSelected = selectedPlanId === plan.id;
               const isMiddle = sortedPlans.length >= 2 && index === 1;
+              const showDiscount = isSelected && discountedPrice != null;
               return (
                 <TouchableOpacity
                   key={plan.id}
@@ -374,7 +564,16 @@ export default function PaymentScreen({ navigation }: Props) {
                     <View style={styles.planLeft}>
                       <Text style={styles.planLabel}>{plan.name}</Text>
                       <View style={styles.planPriceRow}>
-                        <Text style={styles.planPrice}>{formatPlanPrice(plan.priceInCents, plan.currency)}</Text>
+                        {showDiscount && (
+                          <Text style={styles.planPriceStrikethrough}>
+                            {formatPlanPrice(plan.priceInCents, plan.currency)}
+                          </Text>
+                        )}
+                        <Text style={styles.planPrice}>
+                          {showDiscount
+                            ? formatPlanPrice(discountedPrice!, plan.currency)
+                            : formatPlanPrice(plan.priceInCents, plan.currency)}
+                        </Text>
                         <Text style={styles.planPeriod}>{formatBillingPeriod(plan.billingPeriod)}</Text>
                       </View>
                       {isSelected && showTrialBanner && (
@@ -409,6 +608,8 @@ export default function PaymentScreen({ navigation }: Props) {
               );
             })
           )}
+
+          {renderCouponSection()}
 
           {showTrialBanner ? (
             <>

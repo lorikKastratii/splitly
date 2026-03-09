@@ -363,6 +363,39 @@ class ApiClient {
     });
   }
 
+  async validateCoupon(code: string, planId: string): Promise<{
+    valid: boolean;
+    discountType: string | null;
+    percentOff: number | null;
+    amountOffCents: number | null;
+    currency: string | null;
+    duration: string | null;
+    durationInMonths: number | null;
+    couponName: string | null;
+    originalPriceCents: number | null;
+    discountedPriceCents: number | null;
+    error: string | null;
+  }> {
+    return await this.request('/payments/coupons/validate', {
+      method: 'POST',
+      body: { code, planId },
+    });
+  }
+
+  async createPaymentIntentWithCoupon(planId: string, promotionCode?: string): Promise<{
+    clientSecret: string;
+    paymentIntentId: string;
+    originalAmountCents: number | null;
+    discountAmountCents: number | null;
+    finalAmountCents: number | null;
+    promotionCode: string | null;
+  }> {
+    return await this.request('/payments/create-intent-with-coupon', {
+      method: 'POST',
+      body: { planId, ...(promotionCode ? { promotionCode } : {}) },
+    });
+  }
+
   getFullUrl(path: string): string {
     if (path.startsWith('http')) return path;
     return this.baseUrl.replace(/\/api$/, '') + path;
