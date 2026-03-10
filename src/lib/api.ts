@@ -319,6 +319,19 @@ class ApiClient {
     return await this.request('/payments/entitlement');
   }
 
+  async getFeatures(): Promise<{
+    features: Array<{
+      key: string;
+      type: 'boolean' | 'numeric';
+      booleanValue: boolean | null;
+      numericValue: number | null;
+    }>;
+    isFreeTier: boolean;
+    planName: string | null;
+  }> {
+    return await this.request('/payments/features');
+  }
+
   async checkTrialEligibility(planId: string, deviceFingerprint?: string): Promise<{
     eligible: boolean;
     reason: string | null;

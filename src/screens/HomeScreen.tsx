@@ -25,21 +25,20 @@ import Avatar from '../components/Avatar';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
-const FREE_GROUP_LIMIT = 1;
-
 export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { groups, isLoading, loadData, lastUpdated, subscribeToGroups } = useStore();
-  const { profile, isPremium, paymentRequired } = useAuth();
+  const { profile, isPremium, paymentRequired, featureLimits } = useAuth();
   const currentUserId = profile?.id || '';
   const { colors, isDark } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
 
   const handleCreateGroup = () => {
-    if (paymentRequired && !isPremium && groups.length >= FREE_GROUP_LIMIT) {
+    const maxGroups = featureLimits.maxGroups;
+    if (paymentRequired && !isPremium && maxGroups != null && groups.length >= maxGroups) {
       Alert.alert(
         'Free Plan Limit',
-        `You've reached the free plan limit of ${FREE_GROUP_LIMIT} group. Upgrade to Premium for unlimited groups.`,
+        `You've reached the free plan limit of ${maxGroups} group${maxGroups !== 1 ? 's' : ''}. Upgrade to Premium for unlimited groups.`,
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Upgrade', onPress: () => navigation.navigate('Payment') },

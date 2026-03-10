@@ -30,7 +30,7 @@ export default function AccountScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { groups, friends, loadData } = useStore();
   const { colors, toggleTheme, isDark } = useTheme();
-  const { user, signOut, profile: authProfile, updateProfile: updateAuthProfile, isPremium, subscriptionTier, subscriptionExpiresAt, paymentRequired } = useAuth();
+  const { user, signOut, profile: authProfile, updateProfile: updateAuthProfile, isPremium, subscriptionTier, subscriptionExpiresAt, paymentRequired, featureLimits } = useAuth();
   const insets = useSafeAreaInsets();
   
   const [showEditModal, setShowEditModal] = useState(false);
@@ -286,7 +286,7 @@ export default function AccountScreen() {
                   <Text style={[styles.premiumBadgeText, styles.premiumBadgeTextFree]}>Upgrade to Premium</Text>
                 </View>
                 <Text style={[styles.premiumDescription, styles.premiumDescriptionFree]}>
-                  You're on the free plan (1 group, 2 expenses total). Unlock unlimited access.
+                  You're on the free plan ({featureLimits.maxGroups ?? 1} group{(featureLimits.maxGroups ?? 1) !== 1 ? 's' : ''}, {featureLimits.maxExpenses ?? 2} expense{(featureLimits.maxExpenses ?? 2) !== 1 ? 's' : ''} total). Unlock unlimited access.
                 </Text>
                 <View style={[styles.premiumButton, styles.premiumButtonFree]}>
                   <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 15 }}>See Plans →</Text>

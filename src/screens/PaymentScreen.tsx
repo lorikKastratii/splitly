@@ -77,7 +77,7 @@ function billingPeriodToTier(period: string): SubscriptionTier {
 
 export default function PaymentScreen({ navigation }: Props) {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
-  const { setPremium, setTrialing, refreshEntitlement, plans } = useAuth();
+  const { setPremium, setTrialing, refreshEntitlement, plans, featureLimits } = useAuth();
   const { colors } = useTheme();
 
   const sortedPlans = [...plans].sort((a, b) => a.sortOrder - b.sortOrder);
@@ -523,7 +523,7 @@ export default function PaymentScreen({ navigation }: Props) {
           <View style={styles.freeLimitsCard}>
             <Text style={styles.freeLimitsIcon}>⚠️</Text>
             <Text style={styles.freeLimitsText}>
-              Free plan: 1 group and 2 expenses total. Upgrade to remove all limits.
+              Free plan: {featureLimits.maxGroups ?? 1} group{(featureLimits.maxGroups ?? 1) !== 1 ? 's' : ''} and {featureLimits.maxExpenses ?? 2} expense{(featureLimits.maxExpenses ?? 2) !== 1 ? 's' : ''} total. Upgrade to remove all limits.
             </Text>
           </View>
 

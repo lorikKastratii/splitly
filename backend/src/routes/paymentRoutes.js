@@ -10,6 +10,7 @@ router.post('/webhook', webhookController.handleWebhook);
 router.get('/config', paymentController.getPaymentConfig);
 router.get('/plans', paymentController.getPlans);
 router.get('/entitlement', authMiddleware, paymentController.getEntitlement);
+router.get('/features', authMiddleware, paymentController.getFeatures);
 router.post('/create-intent', authMiddleware, paymentController.createIntent);
 
 // Trial endpoints

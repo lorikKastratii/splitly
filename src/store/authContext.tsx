@@ -16,6 +16,16 @@ export interface PaymentPlan {
   sortOrder: number;
 }
 
+export interface FeatureLimits {
+  maxGroups: number | null;
+  maxExpenses: number | null;
+}
+
+const DEFAULT_FREE_LIMITS: FeatureLimits = {
+  maxGroups: 1,
+  maxExpenses: 2,
+};
+
 interface AuthContextType {
   user: User | null;
   session: any;
@@ -27,6 +37,7 @@ interface AuthContextType {
   isPremium: boolean;
   paymentRequired: boolean;
   plans: PaymentPlan[];
+  featureLimits: FeatureLimits;
   signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -68,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [trialSubscriptionId, setTrialSubscriptionId] = useState<string | null>(null);
   const [paymentRequired, setPaymentRequired] = useState(true);
   const [plans, setPlans] = useState<PaymentPlan[]>([]);
+  const [featureLimits, setFeatureLimits] = useState<FeatureLimits>(DEFAULT_FREE_LIMITS);
 
   const isPremium = React.useMemo(() => {
     if (!paymentRequired) return true;
@@ -93,12 +105,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshEntitlement = async () => {
     try {
-      const entitlement = await api.getEntitlement();
+      const [entitlement, featuresRes] = await Promise.all([
+        api.getEntitlement(),
+        api.getFeatures().catch(() => null),
+      ]);
 
       if (entitlement.hasLifetimeAccess) {
         await setPremium('lifetime', null);
       } else if (subscriptionTier === 'lifetime') {
         await setPremium('free', null);
+      }
+
+      if (featuresRes?.features) {
+        const features = featuresRes.features;
+        const getNumeric = (key: string) => {
+          const f = features.find((feat) => feat.key === key);
+          return f?.type === 'numeric' && f.numericValue != null ? f.numericValue : null;
+        };
+        setFeatureLimits({
+          maxGroups: getNumeric('max_groups') ?? DEFAULT_FREE_LIMITS.maxGroups,
+          maxExpenses: getNumeric('max_expenses') ?? DEFAULT_FREE_LIMITS.maxExpenses,
+        });
       }
     } catch {
       // Keep current local subscription state on transient entitlement failures
@@ -350,6 +377,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isPremium,
         paymentRequired,
         plans,
+        featureLimits,
         signUp,
         signIn,
         signOut,

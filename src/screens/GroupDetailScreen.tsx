@@ -40,10 +40,9 @@ interface Props {
 type TabType = 'expenses' | 'balances' | 'myExpenses';
 
 export default function GroupDetailScreen({ navigation, route }: Props) {
-  const FREE_EXPENSE_LIMIT = 2;
   const { group } = route.params;
   const { groups, expenses: allExpenses, addSettlement, loadData, lastUpdated } = useStore();
-  const { profile, isPremium, paymentRequired } = useAuth();
+  const { profile, isPremium, paymentRequired, featureLimits } = useAuth();
   const currentUserId = profile?.id || '';
 
   // Count total expenses this user has paid across ALL groups (for free tier limit)
@@ -708,10 +707,11 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: colors.primary }]}
         onPress={() => {
-          if (paymentRequired && !isPremium && userTotalExpenseCount >= FREE_EXPENSE_LIMIT) {
+          const maxExpenses = featureLimits.maxExpenses;
+          if (paymentRequired && !isPremium && maxExpenses != null && userTotalExpenseCount >= maxExpenses) {
             Alert.alert(
               'Free Plan Limit',
-              `Free plan allows ${FREE_EXPENSE_LIMIT} expenses total. Upgrade to Premium for unlimited expenses.`,
+              `Free plan allows ${maxExpenses} expense${maxExpenses !== 1 ? 's' : ''} total. Upgrade to Premium for unlimited expenses.`,
               [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Upgrade', onPress: () => navigation.navigate('Payment') },

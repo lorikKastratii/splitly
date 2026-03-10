@@ -467,6 +467,54 @@ exports.cancelTrial = async (req, res) => {
   }
 };
 
+// ── Feature entitlements endpoint ────────────────────────────────────────────
+
+exports.getFeatures = async (req, res) => {
+  const userId = req.userId;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { url, key } = getConfig();
+
+  if (!url || !key) {
+    logMissingConfigContext(url, key);
+    return res.json({ features: [], isFreeTier: true });
+  }
+
+  try {
+    const response = await fetch(`${url}/v2/entitlements?userId=${encodeURIComponent(String(userId))}`, {
+      headers: getHeaders(key),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      console.error('Payment features fetch failed:', response.status, errorBody);
+      return res.json({ features: [], isFreeTier: true });
+    }
+
+    const data = await response.json();
+    const payload = data.data || data;
+
+    const features = (payload.features || []).map((f) => ({
+      key: f.key || f.Key,
+      type: f.type || f.Type || 'boolean',
+      booleanValue: f.booleanValue ?? f.BooleanValue ?? null,
+      numericValue: f.numericValue ?? f.NumericValue ?? null,
+    }));
+
+    return res.json({
+      features,
+      isFreeTier: payload.isFreeTier ?? payload.IsFreeTier ?? true,
+      planName: payload.planName ?? payload.PlanName ?? null,
+    });
+  } catch (error) {
+    console.error('Payment features error:', error);
+    return res.json({ features: [], isFreeTier: true });
+  }
+};
+
 exports.syncUserWithPaymentApi = syncUserWithPaymentApi;
 
 // ── Coupon endpoints ────────────────────────────────────────────────────────
