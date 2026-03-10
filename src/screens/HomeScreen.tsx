@@ -28,7 +28,7 @@ type NavigationProp = StackNavigationProp<RootStackParamList>;
 export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { groups, isLoading, loadData, lastUpdated, subscribeToGroups } = useStore();
-  const { profile, isPremium, paymentRequired, featureLimits } = useAuth();
+  const { profile, isPremium, paymentRequired, featureLimits, refreshEntitlement } = useAuth();
   const currentUserId = profile?.id || '';
   const { colors, isDark } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
@@ -62,9 +62,9 @@ export default function HomeScreen() {
   // Pull to refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadData();
+    await Promise.all([loadData(), refreshEntitlement()]);
     setRefreshing(false);
-  }, [loadData]);
+  }, [loadData, refreshEntitlement]);
 
   const renderGroupCard = ({ item, index }: { item: Group; index: number }) => {
     const totalSpent = item.totalSpent || 0;

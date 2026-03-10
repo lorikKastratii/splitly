@@ -42,7 +42,7 @@ type TabType = 'expenses' | 'balances' | 'myExpenses';
 export default function GroupDetailScreen({ navigation, route }: Props) {
   const { group } = route.params;
   const { groups, expenses: allExpenses, addSettlement, loadData, lastUpdated } = useStore();
-  const { profile, isPremium, paymentRequired, featureLimits } = useAuth();
+  const { profile, isPremium, paymentRequired, featureLimits, refreshEntitlement } = useAuth();
   const currentUserId = profile?.id || '';
 
   // Count total expenses this user has paid across ALL groups (for free tier limit)
@@ -115,9 +115,9 @@ export default function GroupDetailScreen({ navigation, route }: Props) {
   // Pull to refresh handler
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([loadData(), fetchGroupData()]);
+    await Promise.all([loadData(), fetchGroupData(), refreshEntitlement()]);
     setRefreshing(false);
-  }, [loadData, fetchGroupData]);
+  }, [loadData, fetchGroupData, refreshEntitlement]);
 
   useFocusEffect(
     useCallback(() => {
