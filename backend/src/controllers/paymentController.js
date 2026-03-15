@@ -72,7 +72,7 @@ async function syncUserWithPaymentApi(userId, email) {
       method: 'POST',
       headers: getHeaders(key),
       body: JSON.stringify({
-        userId: String(userId),
+        externalId: String(userId),
         email: email || null,
       }),
     });
@@ -244,7 +244,7 @@ exports.createIntent = async (req, res) => {
       headers: getHeaders(key),
       body: JSON.stringify({
         planId,
-        userId: req.userId?.toString(),
+        externalId: req.userId?.toString(),
         email: req.userEmail,
       }),
     });
@@ -291,7 +291,7 @@ exports.getEntitlement = async (req, res) => {
       method: 'POST',
       headers: getHeaders(key),
       body: JSON.stringify({
-        userId: String(userId),
+        externalId: String(userId),
         email: userEmail || null,
       }),
     });
@@ -338,7 +338,7 @@ exports.checkTrialEligibility = async (req, res) => {
       headers: getHeaders(key),
       body: JSON.stringify({
         planId,
-        userId: req.userId?.toString(),
+        externalId: req.userId?.toString(),
         email: req.userEmail || null,
         deviceFingerprint: deviceFingerprint || null,
       }),
@@ -386,7 +386,7 @@ exports.startTrial = async (req, res) => {
       headers: getHeaders(key),
       body: JSON.stringify({
         planId,
-        userId: req.userId?.toString(),
+        externalId: req.userId?.toString(),
         email: req.userEmail || null,
         paymentMethodId: paymentMethodId || null,
         deviceFingerprint: deviceFingerprint || null,
@@ -484,7 +484,7 @@ exports.getFeatures = async (req, res) => {
   }
 
   try {
-    const response = await fetch(`${url}/v2/entitlements?userId=${encodeURIComponent(String(userId))}`, {
+    const response = await fetch(`${url}/v2/entitlements?externalId=${encodeURIComponent(String(userId))}`, {
       headers: getHeaders(key),
     });
 
@@ -586,7 +586,7 @@ exports.createIntentWithCoupon = async (req, res) => {
       headers: getHeaders(key),
       body: JSON.stringify({
         planId,
-        userId: req.userId?.toString(),
+        externalId: req.userId?.toString(),
         email: req.userEmail,
         promotionCode: promotionCode || null,
       }),
